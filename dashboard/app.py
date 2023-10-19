@@ -1,63 +1,128 @@
 import pandas as pd
 import plotly.express as px
-from flask import Flask, render_template_string, render_template
+import dash
+from dash import dcc, html
+from dash.dependencies import Input, Output
 from sqlalchemy import create_engine, text, inspect, Table
+from data_processing import _load_data_to_db
 
-# Load the csv file into the db
-def _load_data_to_db():
-    engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
-
-    with engine.connect() as conn:
-        result = conn.execute(text("DROP TABLE IF EXISTS population CASCADE;"))
-
-    population_df = pd.read_csv("../data/world_population.csv", delimiter=";")
-    population_df.to_sql("population", engine, if_exists="replace", index=True)
 
 # Fetch the hardcoded population table from the database
-def _fetch_data_from_db():
+def _fetch_prod_data_from_db():
     engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
-    population_table = pd.read_sql_table('population', engine, index_col='index')
+    agri_prod = pd.read_sql_table('production', engine, index_col='index')
+    return agri_prod
 
-    return population_table
-
-# Generate the interactive plot for in your HTML file
-def generate_population_graph():
-    # Get the table from the database, returns a dataframe of the table
-    population_df = _fetch_data_from_db()
-    population_df['YearIncrease'] = population_df['YearIncrease'].str.replace(',','.').astype(float)
-
-    world_data = population_df[population_df['Region'] == 'WORLD']
-    netherlands_data = population_df[population_df['Region'] == 'Netherlands']
-
-    # Combine the data for World and Netherlands into a single DataFrame
-    combined_data = pd.concat([world_data, netherlands_data])
-
-    # Create a bar chart using Plotly for the combined data
-    fig = px.bar(combined_data, x='Year', y='YearIncrease', color='Region',
-                title='Yearly Increase in World and Netherlands Population',
-                barmode='group')  # Set the barmode to 'group' for side-by-side bars
-
-    # Convert the Plotly figure to HTML
-    plot_html = fig.to_html(full_html=False)
-
-    return plot_html
-
+def _fetch_weather_data_from_db():
+    engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
+    weather = pd.read_sql_table('weather', engine, index_col='index')
+    return weather
 
 # Load the data into the database
 # You will do this asynchronously as a cronjob in the background of your application
 # Or you fetch the data from different sources when the page is visited or how you like to fetch your data
 # Notice that the method _load_data_to_db() now just reads a preloaded .csv file
 # You will have to fetch external files, or call API's to fill your database
+
 _load_data_to_db()
 
-# Initialize the Flask application
-app = Flask(__name__)
+app = dash.Dash(__name__)
 
-@app.route('/')
-def index():
-    # As soon as the page is loaded, the data is retrieved from the db and the graph is created
-    # And is put in the HTML div
-    return render_template('index.html', plot_html=generate_population_graph())
+weather = _fetch_weather_data_from_db()
+
+capitals = weather['capital'].unique()
+
+app.layout = html.Div([
+    html.H1("Weather Data"),
+    html.Label("Select a capital:"),
+    dcc.Dropdown(
+        id='capital-dropdown',
+        options=[{'label': capital, 'value': capital} for capital in capitals],
+        value='Mariehamn'
+    ),
+    html.Label("Select a date range:"),
+    dcc.DatePickerRange(
+        id='date-range-picker',
+        start_date='2016-01-01',
+        end_date='2020-12-31'
+    ),
+    dcc.Graph(id='temperature-plot'),
+    dcc.Graph(id='rain-plot'),
+    dcc.Graph(id='snow-plot'),
+    html.Div(id='statistics')  # container for statistics
+])
+
+app.layout = html.Div([
+    html.H1("Weather Data"),
+    html.Label("Select a capital:"),
+    dcc.Dropdown(
+        id='capital-dropdown',
+        options=[{'label': capital, 'value': capital} for capital in capitals],
+        value='Mariehamn'
+    ),
+    html.Label("Select a date range:"),
+    dcc.DatePickerRange(
+        id='date-range-picker',
+        start_date='2016-01-01',
+        end_date='2020-12-31'
+    ),
+    dcc.Graph(id='temperature-plot'),
+    dcc.Graph(id='rain-plot'),
+    dcc.Graph(id='snow-plot'),
+    html.Div(id='statistics')  # container for statistics
+])
+
+@app.callback(
+    [Output('temperature-plot', 'figure'),
+     Output('rain-plot', 'figure'),
+     Output('snow-plot', 'figure'),
+     Output('statistics', 'children')],  # output for statistics
+    [Input('capital-dropdown', 'value'),
+     Input('date-range-picker', 'start_date'),
+     Input('date-range-picker', 'end_date')]
+)
+def update_plots(selected_capital, start_date, end_date):
+    # filter the data for the selected capital and date range
+    filtered_data = data[(data['capital'] == selected_capital) & (data['date'] >= start_date) & (data['date'] <= end_date)]
+
+    # create a temperature line plot
+    temperature_fig = px.line(filtered_data, x='date', y='temp_mean', title=f'Temperature in {selected_capital}')
+
+    # create a rainfall line plot
+    rain_fig = px.line(filtered_data, x='date', y='rain', title=f'Rainfall in {selected_capital}')
+
+    # create a snowfall line plot
+    snow_fig = px.line(filtered_data, x='date', y='snow', title=f'Snowfall in {selected_capital}')
+
+    # calculate statistics not needed but I was just interesting in these statistics
+    mean_temp = filtered_data['temp_mean'].mean()
+    max_temp = filtered_data['temp_mean'].max()
+    min_temp = filtered_data['temp_mean'].min()
+
+    mean_rain = filtered_data['rain'].mean()
+    max_rain = filtered_data['rain'].max()
+    min_rain = filtered_data['rain'].min()
+
+    mean_snow = filtered_data['snow'].mean()
+    max_snow = filtered_data['snow'].max()
+    min_snow = filtered_data['snow'].min()
+
+    # create statistics text
+    statistics_text = html.Div([
+        html.H2("Statistics"),
+        html.P(f"Mean Temperature: {mean_temp:.2f}°C"),
+        html.P(f"Max Temperature: {max_temp:.2f}°C"),
+        html.P(f"Min Temperature: {min_temp:.2f}°C"),
+        html.P(f"Mean Rainfall: {mean_rain:.2f} mm"),
+        html.P(f"Max Rainfall: {max_rain:.2f} mm"),
+        html.P(f"Min Rainfall: {min_rain:.2f} mm"),
+        html.P(f"Mean Snowfall: {mean_snow:.2f} mm"),
+        html.P(f"Max Snowfall: {max_snow:.2f} mm"),
+        html.P(f"Min Snowfall: {min_snow:.2f} mm")
+    ])
+
+    return temperature_fig, rain_fig, snow_fig, statistics_text
+
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run_server(debug=True, port=8053) #port=8053 was needed to run the code on my laptop
