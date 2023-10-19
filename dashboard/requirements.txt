@@ -1,6 +1,8 @@
 Flask
 pandas
 plotly
+dash
+openpyxl
 psycopg2-binary 
 sqlalchemy 
 pulp 
