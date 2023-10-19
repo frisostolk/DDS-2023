@@ -3,7 +3,6 @@ import plotly.express as px
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
-from flask import Flask, render_template_string, render_template
 from sqlalchemy import create_engine, text, inspect, Table
 from data_processing import _load_data_to_db
 
