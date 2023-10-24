@@ -188,6 +188,4 @@ app.layout = html.Div(
 
 
 if __name__ == "__main__":
-    app.run_server(
-        debug=True, port=8053
-    )  # port=8053 was needed to run the code on my laptop
+    app.run_server(debug=True, host="0.0.0.0", port=5000)
