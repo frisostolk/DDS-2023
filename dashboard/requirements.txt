@@ -1,6 +1,7 @@
 pandas
 plotly
 dash
+dash-bootstrap-components
 openpyxl
 psycopg2-binary 
 sqlalchemy 

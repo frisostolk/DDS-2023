@@ -8,16 +8,17 @@ WORKDIR /app
 
 # Copy the current directory contents into the container at /app
 
-COPY ./dashboard /app
+COPY ./dashboard /app 
 
 # Install any needed packages specified in requirements.txt
 
 RUN pip install -r requirements.txt
 
-# Make port 8050 available to the world outside this container
+# Make port 5000 available to the world outside this container
+EXPOSE 5000
 
-EXPOSE 8050
+# Define environment variable
+ENV DASH_APP app.py
 
 # Run the Dash app
-
 CMD ["python", "app.py"]

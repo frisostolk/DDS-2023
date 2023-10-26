@@ -17,20 +17,20 @@ services:
       db_dashboard:
         condition: service_healthy
 
-  jupyter:
-    build:
-      context: .
-      dockerfile: notebook/Dockerfile_notebook
-    ports:
-      - 8888:8888
-    volumes:
-      - ./notebook:/notebook
-      - ./data:/data
-    environment:
-      - JUPYTER_ENABLE_LAB=yes
-      - NB_USER=infomdss
-      - CHOWN_HOME=yes
-    working_dir: /notebook
+  # jupyter:
+  #   build:
+  #     context: .
+  #     dockerfile: notebook/Dockerfile_notebook
+  #   ports:
+  #     - 8888:8888
+  #   volumes:
+  #     - ./notebook:/notebook
+  #     - ./data:/data
+  #   environment:
+  #     - JUPYTER_ENABLE_LAB=yes
+  #     - NB_USER=infomdss
+  #     - CHOWN_HOME=yes
+  #   working_dir: /notebook
 
   db_dashboard:
     image: postgres
@@ -44,7 +44,7 @@ services:
       - db_dashboard-data:/var/lib/postgresql/data/
     container_name: db_dashboard
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       interval: 3s
       timeout: 60s
       retries: 10
