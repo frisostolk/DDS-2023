@@ -4,6 +4,8 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.express as px
 
+from src.data_import import _load_data_to_db
+
 # from components.layout import create_layout
 # import components.callbacks
 from src.data_fetching import (
@@ -11,6 +13,9 @@ from src.data_fetching import (
     _fetch_prod_data_from_db,
     _fetch_weather_data_from_db,
 )
+
+# load data to db
+_load_data_to_db
 
 weather_data = _fetch_weather_data_from_db()
 
