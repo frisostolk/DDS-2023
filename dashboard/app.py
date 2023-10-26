@@ -333,8 +333,7 @@ def update_plots(selected_capital, start_date, end_date):
             dbc.Col(
                 className="dashboard",
                 children=[
-                    dbc.Col(html.Div("Current Weather", className="header"), width="auto"),
-                    dbc.Col(html.Button("Retrieve Now", className="btn btn-primary", id="retrieve-button"), width="auto"),
+                    dbc.Col(html.Button("Retrieve current weather", className="btn btn-primary", id="retrieve-button", style={"display": "flex", "align-items": "center"}), width="auto"),
                 ],
                 width=3,
             ),
@@ -361,7 +360,7 @@ def update_plots(selected_capital, start_date, end_date):
     Input("capital-dropdown", "value")
 )
 def update_output(n_clicks, country):
-    if n_clicks is not None and n_clicks > 0:
+    if n_clicks is not None and n_clicks > 0 and country in capitals:
         # The button has been pressed
         latitude = weather_data.loc[weather_data['country'] == country]["latitude"].tolist()[0]
         longitude = weather_data.loc[weather_data['country'] == country]["longitude"].tolist()[0]
