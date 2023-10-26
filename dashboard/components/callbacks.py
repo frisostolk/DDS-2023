@@ -43,7 +43,9 @@ def update_capitals_dropdown(app_initialization):
 
 
 # Weather - Temperature timeseries callback
-@app.callback(Output("temperature-plot", "style"), Input("dropdown", "value"))
+@app.callback(
+    Output("temperature-plot", "style"), Input("weather-analytics-dropdown", "value")
+)
 def update_graph_visibility(selected_option):
     if selected_option == "temp-time":
         return {"display": "block"}
@@ -52,7 +54,9 @@ def update_graph_visibility(selected_option):
 
 
 # Weather - Rainfall timeseries callback
-@app.callback(Output("rain-plot", "style"), Input("dropdown", "value"))
+@app.callback(
+    Output("rain-plot", "style"), Input("weather-analytics-dropdown", "value")
+)
 def update_graph_visibility(selected_option):
     if selected_option == "rain-time":
         return {"display": "block"}
@@ -61,7 +65,9 @@ def update_graph_visibility(selected_option):
 
 
 # Weather - Snowfall timeseries callback
-@app.callback(Output("snow-plot", "style"), Input("dropdown", "value"))
+@app.callback(
+    Output("snow-plot", "style"), Input("weather-analytics-dropdown", "value")
+)
 def update_graph_visibility(selected_option):
     if selected_option == "snow-time":
         return {"display": "block"}
@@ -70,7 +76,9 @@ def update_graph_visibility(selected_option):
 
 
 # Weather - Summary statistics callback
-@app.callback(Output("statistics", "style"), Input("dropdown", "value"))
+@app.callback(
+    Output("statistics", "style"), Input("weather-analytics-dropdown", "value")
+)
 def update_graph_visibility(selected_option):
     if selected_option == "summary":
         return {"display": "block"}
@@ -84,7 +92,7 @@ def update_graph_visibility(selected_option):
         Output("rain-plot", "figure"),
         Output("snow-plot", "figure"),
         Output("statistics", "children"),
-    ],  # output for statistics
+    ],
     [
         Input("capital-dropdown", "value"),
         Input("date-range-picker", "start_date"),
@@ -93,7 +101,7 @@ def update_graph_visibility(selected_option):
 )
 def update_plots(selected_capital, start_date, end_date):
     # filter the data for the selected capital and date range
-    weather_data = _fetch_weather_data_from_db()
+    # weather_data = _fetch_weather_data_from_db()
 
     filtered_data = weather_data[
         (weather_data["capital"] == selected_capital)

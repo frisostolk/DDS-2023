@@ -1,5 +1,7 @@
 from dash import html
 from dash import dcc
+from my_dash_app.maindash import app
+from dash.dependencies import Input, Output, State
 
 
 # Define the layout of your app
@@ -51,3 +53,5 @@ def create_layout(weather_data):
             ),
         ],
     )
+
+
