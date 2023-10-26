@@ -368,9 +368,9 @@ def update_plots(selected_capital, start_date, end_date):
 
 
 @app.callback(
-    Output("valueTemperature", "children"),
+    (Output("valueTemperature", "children"),
     Output("valueRain", "children"),
-    Output("valueSnow", "children"),
+    Output("valueSnow", "children"),),
     Input("retrieve-button", "n_clicks"),
     Input("capital-dropdown", "value")
 )
@@ -387,6 +387,8 @@ def update_output(n_clicks, country):
         rain = j["current"]["rain"]
         snow = j["current"]["snowfall"]
         return temp_mean, rain, snow
+    else:
+        return "", "",""
 
 
 
