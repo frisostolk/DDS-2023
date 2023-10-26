@@ -15,7 +15,7 @@ from src.data_fetching import (
 )
 
 # load data to db
-_load_data_to_db
+_load_data_to_db()
 
 weather_data = _fetch_weather_data_from_db()
 
