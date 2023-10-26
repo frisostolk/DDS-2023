@@ -25,108 +25,91 @@ weather_data = _fetch_weather_data_from_db()
 
 capitals = weather_data["country"].unique()
 
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
+app = dash.Dash(__name__, suppress_callback_exceptions=True,external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 app.layout = html.Div(
-    style={},
+    style={"width": "100%", "margin": "0 auto", "background-color": "#f8f9fa"},
     children=[
-        html.H1("Agriculture Dashboard"),
+        dbc.NavbarSimple(
+            children=[
+                dbc.NavItem(html.Label("Select Country", style={"color": "white", "text-align": "center"}),
+                            style={"margin-left": "20px", "margin-right": "20px"}),
+                dcc.Dropdown(
+                    style={"width": "200px"},
+                    id="capital-dropdown",
+                    options=[
+                        {
+                            "label": capital,
+                            "value": capital,
+                        }
+                        for capital in capitals
+                    ],
+                    value="Mariehamn",
+                ),
+                dbc.NavItem(html.Label("Select Analytics", style={"color": "white", "text-align": "center"}),
+                            style={"margin-left": "20px", "margin-right": "20px"}),  # Adjust margins for spacing
+                dcc.Dropdown(
+                    style={"width": "200px"},
+                    id="weather-analytics-dropdown",
+                    options=[
+                        {
+                            "label": "Temperature Time Series",
+                            "value": "temp-time",
+                        },
+                        {
+                            "label": "Rainfall Time Series",
+                            "value": "rain-time",
+                        },
+                        {
+                            "label": "Snowfall Time Series",
+                            "value": "snow-time",
+                        },
+                        {
+                            "label": "Summary",
+                            "value": "summary",
+                        },
+                    ],
+                    value="temp-time",
+                ),
+                dbc.NavItem(html.Label("Select Time-frame", style={"color": "white", "text-align": "center"}),
+                            style={"margin-left": "20px", "margin-right": "20px"}),
+                dcc.DatePickerRange(
+                    id="date-range-picker",
+                    start_date="2016-01-01",
+                    end_date="2020-12-31",
+                ),
+            ],
+            color="primary",
+            dark=True,
+        ),
+
         html.Div(
-            style={},
+            style={"margin": "0 auto"},
             children=[
                 dbc.Row(
                     [
-                        dbc.Col(
+
                             html.Div(
                                 children=[
                                     # Weather Analytics Block
                                     html.Div(
-                                        style={},
+                                        style={"width": "100%", "margin": "0 auto"},
                                         children=[
-                                            dbc.Row(
-                                                [
-                                                    dbc.Col(
-                                                        html.Div(
-                                                            [
-                                                                html.Label(
-                                                                    "Select a country:"
-                                                                ),
-                                                                dcc.Dropdown(
-                                                                    id="capital-dropdown",
-                                                                    options=[
-                                                                        {
-                                                                            "label": capital,
-                                                                            "value": capital,
-                                                                        }
-                                                                        for capital in capitals
-                                                                    ],
-                                                                    value="Mariehamn",
-                                                                ),
-                                                            ]
-                                                        ),
-                                                        width=6,
-                                                    ),
-                                                    dbc.Col(
-                                                        html.Div(
-                                                            [
-                                                                html.Label(
-                                                                    "Select Analytics"
-                                                                ),
-                                                                dcc.Dropdown(
-                                                                    id="weather-analytics-dropdown",
-                                                                    options=[
-                                                                        {
-                                                                            "label": "Temperature Time Series",
-                                                                            "value": "temp-time",
-                                                                        },
-                                                                        {
-                                                                            "label": "Rainfall Time Series",
-                                                                            "value": "rain-time",
-                                                                        },
-                                                                        {
-                                                                            "label": "Snowfall Time Series",
-                                                                            "value": "snow-time",
-                                                                        },
-                                                                        {
-                                                                            "label": "Summary",
-                                                                            "value": "summary",
-                                                                        },
-                                                                    ],
-                                                                    value="temp-time",
-                                                                ),
-                                                            ]
-                                                        ),
-                                                        width=6,
-                                                    ),
-                                                ]
-                                            ),
-                                            html.Label("Select a date range:"),
-                                            dcc.DatePickerRange(
-                                                id="date-range-picker",
-                                                start_date="2016-01-01",
-                                                end_date="2020-12-31",
-                                            ),
                                             dbc.Row(
                                                 dbc.Col(
                                                     html.Div(
                                                         [
                                                             dcc.Graph(
                                                                 id="temperature-plot",
-                                                                style={
-                                                                    "display": "block"
-                                                                },
+                                                                style={"display": "block"},
                                                             ),
                                                             dcc.Graph(
                                                                 id="rain-plot",
-                                                                style={
-                                                                    "display": "none"
-                                                                },
+                                                                style={"display": "none"},
                                                             ),
                                                             dcc.Graph(
                                                                 id="snow-plot",
-                                                                style={
-                                                                    "display": "none"
-                                                                },
+                                                                style={"display": "none"},
                                                             ),
                                                         ]
                                                     )
@@ -134,25 +117,22 @@ app.layout = html.Div(
                                             ),
                                             dbc.Row(
                                                 dbc.Col(
-                                                    html.Div(
-                                                        id="statistics",
-                                                        style={"display": "none"},
-                                                    ),
+                                                    [
+                                                        html.Div(
+                                                            id="statistics",
+                                                            style={"display": "none"},
+                                                        ),
+                                                        html.Div(
+                                                            id="weather",
+                                                            style={"display": "block"},
+                                                        ),
+                                                    ]
                                                 )
                                             ),
                                         ],
                                     ),
                                 ],
-                            ),
-                            width=6,
-                        ),
-                        dbc.Col(
-                            html.Div(
-                                id="weather",
-                                style={"display": "none"},
-                            ),
-                            width=6,
-                        ),
+                            )
                     ]
                 ),
                 dbc.Row(
@@ -179,17 +159,20 @@ app.layout = html.Div(
 )
 
 
+
+
+
+
 # Weather - Temperature timeseries callback
 @app.callback(
     Output("temperature-plot", "style"),
-    Output("weather", "style"),
     Input("weather-analytics-dropdown", "value")
 )
 def update_graph_visibility(selected_option):
     if selected_option == "temp-time":
-        return {"display": "block"}, {"display": "block"}
+        return {"display": "block"}
     else:
-        return {"display": "none"}, {"display": "none"}
+        return {"display": "none"}
 
 
 # Weather - Rainfall timeseries callback
@@ -345,24 +328,27 @@ def update_plots(selected_capital, start_date, end_date):
     )
 
 
-    current_weather = html.Div([
-        html.Div(className="dashboard", children=[
-            html.Div(className="header", children="Current Weather"),
-            html.Button("Retrieve Now", className="button", id="retrieve-button"),
-            html.Div(className="row", children=[
-                html.Span(className="label", children="Temperature:"),
-                html.Span(id="valueTemperature", children="72°F")
-                ]),
-            html.Div(className="row", children=[
-                html.Span(className="label", children="Rain:"),
-                html.Span(id="valueRain", children="10%")
-                ]),
-            html.Div(className="row", children=[
-                html.Span(className="label", children="Snow:"),
-                html.Span(id="valueSnow", children="0%")
-                ])
-            ])
-        ])
+    current_weather = dbc.Row(
+        children=[
+            dbc.Col(
+                className="dashboard",
+                children=[
+                    dbc.Col(html.Div("Current Weather", className="header"), width="auto"),
+                    dbc.Col(html.Button("Retrieve Now", className="btn btn-primary", id="retrieve-button"), width="auto"),
+                ],
+                width=3,
+            ),
+            dbc.Col(
+                [
+                    dbc.Row([html.Span("Temperature:"), html.Span(id="valueTemperature", children="72°F")]),
+                    dbc.Row([html.Span("Rain:"), html.Span(id="valueRain", children="10%")]),
+                    dbc.Row([html.Span("Snow:"), html.Span(id="valueSnow", children="0%")]),
+                ],
+                width=6,
+            ),
+        ]
+    )
+
 
     return temperature_fig, rain_fig, snow_fig, statistics_text, current_weather
 
