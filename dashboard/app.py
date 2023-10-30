@@ -18,8 +18,8 @@ from src.data_fetching import (
     _fetch_weather_data_from_db,
 )
 
-# load data to db
-#_load_data_to_db()
+
+agri_data = _fetch_prod_data_from_db()
 
 weather_data = _fetch_weather_data_from_db()
 
@@ -175,6 +175,26 @@ app.layout = html.Div(
                 ),
             ],
         ),
+    
+
+    html.Label('Select Country:'),
+        dcc.Dropdown(
+            id='country-dropdown',
+            options=[
+                {'label': country, 'value': country} 
+                for country in agri_data['Country'].unique() if pd.notna(country)],
+            value=agri_data['Country'].iloc[0],  # Default selected value
+            multi = False,
+        ),
+        html.Label('Select Types:'),
+        dcc.Dropdown(
+            id='type-dropdown',
+            options=[{'label': data_type, 'value': data_type} for data_type in agri_data['Type'].unique() if pd.notna(data_type)] ,
+            value=agri_data['Type'].unique(),  # Default selected value (all types)
+            multi=True,  # Allow multiple selections 
+        ),
+        dcc.Graph(id='line-chart'),
+
     ],
 )
 
@@ -390,6 +410,38 @@ def update_output(n_clicks, country):
     else:
         return "", "",""
 
+
+@app.callback(
+    Output('line-chart', 'figure'),
+    [Input('country-dropdown', 'value'),
+     Input('type-dropdown', 'value')]
+)
+
+def update_line_chart(selected_country, selected_types):
+    # Filter data based on selected country and types
+    filtered_df = agri_data[(agri_data['Country'] == selected_country) & (agri_data['Type'].isin(selected_types))]
+
+    # Create traces for each selected type
+    traces = []
+    for data_type in selected_types:
+        type_data = filtered_df[filtered_df['Type'] == data_type]
+        trace = dict(
+            x=type_data['Year'],
+            y=type_data['Value'],
+            mode='lines',
+            name=data_type
+        )
+        traces.append(trace)
+
+    # Create the layout for the line chart
+    layout = dict(
+        title=f'{selected_country} - Value by Type Over Years',
+        xaxis=dict(title='Year'),
+        yaxis=dict(title='Value'),
+    )
+
+    # Return the Figure object
+    return dict(data=traces, layout=layout)
 
 
 if __name__ == "__main__":
