@@ -3,6 +3,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.express as px
+import geopandas as gpd
 
 from src.data_import import _load_data_to_db
 
@@ -12,10 +13,30 @@ from src.data_fetching import (
     _fetch_capitals,
     _fetch_prod_data_from_db,
     _fetch_weather_data_from_db,
+    _fetch_nutrient_data,
+    _fetch_emission_data,
 )
 
 # load data to db
 _load_data_to_db()
+
+# Fetch Nutrient Data from DB
+nut_table = _fetch_nutrient_data()
+# print(nut_table)
+
+# Fetch Emission Data from DB
+em_table = _fetch_emission_data()
+# print(em_table)
+
+# map_data = nut_table["Nutrient"] == "Nitrogen"
+
+# map_data = map_data["Year"] == "2022"
+
+
+# Load a shapefile of world countries
+euro_countries = gpd.read_file("./static/custom.geo.json")
+
+# print(euro_countries.columns())
 
 weather_data = _fetch_weather_data_from_db()
 
@@ -158,6 +179,49 @@ app.layout = html.Div(
                             html.Div(
                                 children=[
                                     # Add other analytics here
+                                    html.Div(
+                                        [
+                                            html.H4("Agricultural Indicators"),
+                                            html.P("Select an Indicator:"),
+                                            dcc.Dropdown(
+                                                id="indicator-dropdown",
+                                                options=[
+                                                    {
+                                                        "label": "Nitrogen",
+                                                        "value": "Nitrogen",
+                                                    },
+                                                    {
+                                                        "label": "Phosphorus",
+                                                        "value": "Phosphorus",
+                                                    },
+                                                    {
+                                                        "label": "Emissions",
+                                                        "value": "Emissions",
+                                                    },
+                                                ],
+                                                value="Emissions",
+                                            ),
+                                            dcc.Dropdown(
+                                                id="year-dropdown",
+                                                options=[
+                                                    {"label": "2010", "value": "2010"},
+                                                    {"label": "2011", "value": "2011"},
+                                                    {"label": "2012", "value": "2012"},
+                                                    {"label": "2013", "value": "2013"},
+                                                    {"label": "2014", "value": "2014"},
+                                                    {"label": "2015", "value": "2015"},
+                                                    {"label": "2016", "value": "2016"},
+                                                    {"label": "2017", "value": "2017"},
+                                                    {"label": "2018", "value": "2018"},
+                                                    {"label": "2019", "value": "2019"},
+                                                    {"label": "2020", "value": "2020"},
+                                                    {"label": "2021", "value": "2021"},
+                                                ],
+                                                value="2021",
+                                            ),
+                                            dcc.Graph(id="choropleth-maps-x-graph"),
+                                        ]
+                                    )
                                 ]
                             )
                         ),
@@ -339,6 +403,30 @@ def update_plots(selected_capital, start_date, end_date):
     )
 
     return temperature_fig, rain_fig, snow_fig, statistics_text
+
+
+@app.callback(
+    Output("choropleth-maps-x-graph", "figure"),
+    Input("indicator-dropdown", "value"),
+    Input("year-dropdown", "value"),
+)
+def update_choropleth(indicator, year):
+    if indicator == "Emissions":
+        map_data = em_table[em_table["Year"] == year]
+    else:
+        nut = nut_table[nut_table["Nutrient"] == indicator]
+        map_data = nut[nut["Year"] == year]
+
+    fig = px.choropleth(
+        map_data,
+        geojson=euro_countries,
+        locations="Country",
+        color="Value",
+        scope="europe",
+        featureidkey="properties.name",
+    )
+
+    return fig
 
 
 if __name__ == "__main__":

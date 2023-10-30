@@ -16,6 +16,18 @@ def _fetch_weather_data_from_db():
     return weather
 
 
+def _fetch_nutrient_data():
+    engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
+    nutrients = pd.read_sql_table("nutrients", engine, index_col="index")
+    return nutrients
+
+
+def _fetch_emission_data():
+    engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
+    em_table = pd.read_sql_table("emissions", engine, index_col="index")
+    return em_table
+
+
 # Fetch list of capitals
 def _fetch_capitals():
     weather = _fetch_weather_data_from_db()
