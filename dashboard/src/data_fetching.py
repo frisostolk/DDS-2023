@@ -28,9 +28,8 @@ def _fetch_emission_data():
     return em_table
 
 
-# Fetch list of capitals
-def _fetch_capitals():
+# Fetch list of countries
+def _fetch_countries():
     weather = _fetch_weather_data_from_db()
-    capitals = weather["capital"].unique()
-    print(capitals)
-    return capitals
+    countries = weather["country"].unique()
+    return countries
