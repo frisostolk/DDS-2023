@@ -35,9 +35,9 @@ def _fetch_countries():
     countries = weather["country"].unique()
     return countries
 
-def get_monthly_data(selected_country, db_conn):
+def get_monthly_data(selected_country, db_conn, start_year, end_year): 
     data_frames = []
-    for year in range(2013, 2024):
+    for year in range(start_year, end_year + 1):
         query = f'''
             SELECT 
             TO_CHAR(w.date, 'YYYY-MM') as month_year,

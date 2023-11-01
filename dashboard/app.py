@@ -8,6 +8,10 @@ import pandas as pd
 from datetime import datetime
 import requests
 import json
+from sqlalchemy import create_engine, text, inspect, Table
+import statistics
+from plotly.subplots import make_subplots
+import plotly.graph_objs as go
 
 from src.data_import import _load_data_to_db
 
@@ -19,6 +23,7 @@ from src.data_fetching import (
     _fetch_weather_data_from_db,
     _fetch_nutrient_data,
     _fetch_emission_data,
+    get_monthly_data,
 )
 
 # Load Data to database
@@ -120,10 +125,25 @@ app.layout = html.Div(
                                                 start_date="2016-01-01",
                                                 end_date="2020-12-31",
                                             ),
+                                            dcc.Checklist(
+                                                id='weather-data-selection',
+                                                options=[
+                                                    {'label': 'Temperature', 'value': 'temp_mean'},
+                                                    {'label': 'Rainfall', 'value': 'rain'},
+                                                    {'label': 'Snowfall', 'value': 'snow'}
+                                                ],
+                                                 value=['temp_mean', 'rain', 'snow']
+                                            ),
                                             dbc.Row(
                                                 dbc.Col(
                                                     html.Div(
                                                         [
+                                                            dcc.Graph(
+                                                                id="weather-plot",
+                                                                style={
+                                                                    "display": "block"
+                                                                },
+                                                            ),
                                                             dcc.Graph(
                                                                 id="temperature-plot",
                                                                 style={
@@ -310,6 +330,7 @@ def update_graph_visibility(selected_option):
 # Weather analytics callback
 @app.callback(
     [
+        Output("weather-plot", "figure"),
         Output("temperature-plot", "figure"),
         Output("rain-plot", "figure"),
         Output("snow-plot", "figure"),
@@ -319,9 +340,10 @@ def update_graph_visibility(selected_option):
         Input("country-dropdown", "value"),
         Input("date-range-picker", "start_date"),
         Input("date-range-picker", "end_date"),
+        Input('weather-data-selection', 'value'),
     ],
 )
-def update_plots(selected_country, start_date, end_date):
+def update_plots(selected_country, start_date, end_date, selected_data):
     # filter the data for the selected country and date range
     # weather_data = _fetch_weather_data_from_db()
     aggregated_data = weather_data.groupby(
@@ -466,7 +488,31 @@ def update_plots(selected_country, start_date, end_date):
     #     ]
     # )
 
+    engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
+    db_conn = engine.connect()
+    start_year = int(start_date.split('-')[0])
+    end_year = int(end_date.split('-')[0])
+    data = get_monthly_data(selected_country, db_conn, start_year, end_year)
+    if not data.empty:
+        fig = make_subplots(specs=[[{"secondary_y": True}]])  # Create subplots with a secondary y-axis
+
+        for data_point in selected_data:
+            if data_point == 'temp_mean':
+                fig.add_trace(go.Scatter(x=data['month_year'], y=data['mean_temp'], mode='lines', name='Temperature'))
+            else:
+                fig.add_trace(go.Scatter(x=filtered_data['date'], y=filtered_data[data_point], mode='lines', name=data_point), secondary_y=True)
+
+        fig.update_layout(
+            title=f'Weather Data in {selected_country}',
+            xaxis_title="Date",
+            xaxis_rangeslider_visible=True
+    )
+    else:
+        fig = px.line(title=f"No data available for {selected_country}")
+    db_conn.close()
+
     return (
+        fig,
         temperature_fig,
         rain_fig,
         snow_fig,
