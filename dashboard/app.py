@@ -3,26 +3,37 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.express as px
+import geopandas as gpd
 import pandas as pd
 from datetime import datetime
 import requests
 import json
-from sqlalchemy import create_engine, text, inspect, Table
-import statistics
 
 from src.data_import import _load_data_to_db
 
 # from components.layout import create_layout
 # import components.callbacks
 from src.data_fetching import (
-    _fetch_capitals,
+    _fetch_countries,
     _fetch_prod_data_from_db,
     _fetch_weather_data_from_db,
-    get_monthly_data,
+    _fetch_nutrient_data,
+    _fetch_emission_data,
 )
 
-# load data to db
-#_load_data_to_db()
+# Load Data to database
+# _load_data_to_db()
+
+agri_data = _fetch_prod_data_from_db()
+
+# Fetch Nutrient Data from DB
+nut_table = _fetch_nutrient_data()
+
+# Fetch Emission Data from DB
+em_table = _fetch_emission_data()
+
+# Populate map using geo.json
+euro_countries = gpd.read_file("./static/custom.geo.json")
 
 weather_data = _fetch_weather_data_from_db()
 
@@ -63,7 +74,7 @@ app.layout = html.Div(
                                                                         }
                                                                         for country in countries
                                                                     ],
-                                                                    value="Mariehamn",
+                                                                    value="Netherlands",
                                                                 ),
                                                             ]
                                                         ),
@@ -90,14 +101,10 @@ app.layout = html.Div(
                                                                             "label": "Snowfall Time Series",
                                                                             "value": "snow-time",
                                                                         },
-                                                                        {
-                                                                            "label": "Sunhours Time Series",
-                                                                            "value": "sun-time",
-                                                                        },
-                                                                        {
-                                                                            "label": "Summary",
-                                                                            "value": "summary",
-                                                                        },
+                                                                        # {
+                                                                        #     "label": "Summary",
+                                                                        #     "value": "summary",
+                                                                        # },
                                                                     ],
                                                                     value="temp-time",
                                                                 ),
@@ -143,7 +150,7 @@ app.layout = html.Div(
                                                 dbc.Col(
                                                     html.Div(
                                                         id="statistics",
-                                                        style={"display": "none"},
+                                                        style={"display": "block"},
                                                     ),
                                                 )
                                             ),
@@ -155,8 +162,36 @@ app.layout = html.Div(
                         ),
                         dbc.Col(
                             html.Div(
-                                id="weather",
-                                style={"display": "none"},
+                                children=[
+                                    # Production Analytics
+                                    html.Label("Select Country:"),
+                                    dcc.Dropdown(
+                                        id="country-dropdown-prod",
+                                        options=[
+                                            {"label": country, "value": country}
+                                            for country in agri_data["Country"].unique()
+                                            if pd.notna(country)
+                                        ],
+                                        value=agri_data["Country"].iloc[
+                                            0
+                                        ],  # Default selected value
+                                        multi=False,
+                                    ),
+                                    html.Label("Select Types:"),
+                                    dcc.Dropdown(
+                                        id="type-dropdown",
+                                        options=[
+                                            {"label": data_type, "value": data_type}
+                                            for data_type in agri_data["Type"].unique()
+                                            if pd.notna(data_type)
+                                        ],
+                                        value=agri_data[
+                                            "Type"
+                                        ].unique(),  # Default selected value (all types)
+                                        multi=True,  # Allow multiple selections
+                                    ),
+                                    dcc.Graph(id="line-chart"),
+                                ]
                             ),
                             width=6,
                         ),
@@ -167,27 +202,57 @@ app.layout = html.Div(
                         dbc.Col(
                             html.Div(
                                 children=[
-                                    dcc.Graph(
-                                        id="meantemperature-plot",
-                                        style={
-                                            "display": "block"
-                                        },
-                                    ), 
-                                    dcc.Graph(
-                                        id="meanSuntime-plot",
-                                        style={
-                                            "display": "none"
-                                        },
+                                    # EU map analytics
+                                    html.H4("Agricultural Indicators"),
+                                    html.P("Select an Indicator:"),
+                                    dcc.Dropdown(
+                                        id="indicator-dropdown",
+                                        options=[
+                                            {
+                                                "label": "Nitrogen",
+                                                "value": "Nitrogen",
+                                            },
+                                            {
+                                                "label": "Phosphorus",
+                                                "value": "Phosphorus",
+                                            },
+                                            {
+                                                "label": "Emissions",
+                                                "value": "Emissions",
+                                            },
+                                        ],
+                                        value="Emissions",
                                     ),
+                                    dcc.Dropdown(
+                                        id="year-dropdown",
+                                        options=[
+                                            {"label": "2010", "value": "2010"},
+                                            {"label": "2011", "value": "2011"},
+                                            {"label": "2012", "value": "2012"},
+                                            {"label": "2013", "value": "2013"},
+                                            {"label": "2014", "value": "2014"},
+                                            {"label": "2015", "value": "2015"},
+                                            {"label": "2016", "value": "2016"},
+                                            {"label": "2017", "value": "2017"},
+                                            {"label": "2018", "value": "2018"},
+                                            {"label": "2019", "value": "2019"},
+                                            {"label": "2020", "value": "2020"},
+                                            {"label": "2021", "value": "2021"},
+                                        ],
+                                        value="2021",
+                                    ),
+                                    dcc.Graph(id="choropleth-maps-x-graph"),
                                 ]
-                            )
+                            ),
+                            width=6,
                         ),
                         dbc.Col(
                             html.Div(
                                 children=[
                                     # Add other analytics here
                                 ]
-                            )
+                            ),
+                            width=6,
                         ),
                     ]
                 ),
@@ -200,14 +265,13 @@ app.layout = html.Div(
 # Weather - Temperature timeseries callback
 @app.callback(
     Output("temperature-plot", "style"),
-    Output("weather", "style"),
-    Input("weather-analytics-dropdown", "value")
+    Input("weather-analytics-dropdown", "value"),
 )
 def update_graph_visibility(selected_option):
     if selected_option == "temp-time":
-        return {"display": "block"}, {"display": "block"}
+        return {"display": "block"}
     else:
-        return {"display": "none"}, {"display": "none"}
+        return {"display": "none"}
 
 
 # Weather - Rainfall timeseries callback
@@ -233,47 +297,23 @@ def update_graph_visibility(selected_option):
 
 
 # Weather - Summary statistics callback
-@app.callback(
-    Output("statistics", "style"), Input("weather-analytics-dropdown", "value")
-)
-def update_graph_visibility(selected_option):
-    if selected_option == "summary":
-        return {"display": "block"}
-    else:
-        return {"display": "none"}
+# @app.callback(
+#     Output("statistics", "style"), Input("weather-analytics-dropdown", "value")
+# )
+# def update_graph_visibility(selected_option):
+#     if selected_option == "summary":
+#         return {"display": "block"}
+#     else:
+#         return {"display": "none"}
 
 
-# Mean Weather statistics callbacks
-# Mean monthly temperature
-@app.callback(
-    Output("meantemperature-plot", "style"), Input("weather-analytics-dropdown", "value")
-)
-def update_graph_visibility(selected_option):
-    if selected_option == "temp-time":
-        return {"display": "block"}
-    else:
-        return {"display": "none"}
-
-#mean Suntime callback
-@app.callback(
-    Output("meanSuntime-plot", "style"), Input("weather-analytics-dropdown", "value")
-)
-def update_graph_visibility(selected_option):
-    if selected_option == "sun-time":
-        return {"display": "block"}
-    else:
-        return {"display": "none"}
-
-
+# Weather analytics callback
 @app.callback(
     [
         Output("temperature-plot", "figure"),
         Output("rain-plot", "figure"),
         Output("snow-plot", "figure"),
         Output("statistics", "children"),
-        Output("weather","children"),
-        Output("meantemperature-plot", "figure"),
-        Output("meanSuntime-plot", "figure"),
     ],
     [
         Input("country-dropdown", "value"),
@@ -283,8 +323,10 @@ def update_graph_visibility(selected_option):
 )
 def update_plots(selected_country, start_date, end_date):
     # filter the data for the selected country and date range
-    #weather_data = _fetch_weather_data_from_db()
-    aggregated_data = weather_data.groupby(['date','country', "longitude", "latitude"], as_index=False).mean(numeric_only=True)
+    # weather_data = _fetch_weather_data_from_db()
+    aggregated_data = weather_data.groupby(
+        ["date", "country", "longitude", "latitude"], as_index=False
+    ).mean(numeric_only=True)
     filtered_data = aggregated_data[
         (aggregated_data["country"] == selected_country)
         & (aggregated_data["date"] >= start_date)
@@ -386,63 +428,71 @@ def update_plots(selected_country, start_date, end_date):
         ]
     )
 
+    # I had to comment the current weather out, it needs to be incorporated into the layout, and use callbacks when the button is pressed
+    # havent gotten around to implementing it myself
 
-    current_weather = html.Div([
-        html.Div(className="dashboard", children=[
-            html.Div(className="header", children="Current Weather"),
-            html.Button("Retrieve Now", className="button", id="retrieve-button"),
-            html.Div(className="row", children=[
-                html.Span(className="label", children="Temperature:"),
-                html.Span(id="valueTemperature", children="72°F")
-                ]),
-            html.Div(className="row", children=[
-                html.Span(className="label", children="Rain:"),
-                html.Span(id="valueRain", children="10%")
-                ]),
-            html.Div(className="row", children=[
-                html.Span(className="label", children="Snow:"),
-                html.Span(id="valueSnow", children="0%")
-                ])
-            ])
-        ])
+    # current_weather = html.Div(
+    #     [
+    #         html.Div(
+    #             className="dashboard",
+    #             children=[
+    #                 html.Div(className="header", children="Current Weather"),
+    #                 html.Button(
+    #                     "Retrieve Now", className="button", id="retrieve-button"
+    #                 ),
+    #                 html.Div(
+    #                     className="row",
+    #                     children=[
+    #                         html.Span(className="label", children="Temperature:"),
+    #                         html.Span(id="valueTemperature", children="72°F"),
+    #                     ],
+    #                 ),
+    #                 html.Div(
+    #                     className="row",
+    #                     children=[
+    #                         html.Span(className="label", children="Rain:"),
+    #                         html.Span(id="valueRain", children="10%"),
+    #                     ],
+    #                 ),
+    #                 html.Div(
+    #                     className="row",
+    #                     children=[
+    #                         html.Span(className="label", children="Snow:"),
+    #                         html.Span(id="valueSnow", children="0%"),
+    #                     ],
+    #                 ),
+    #             ],
+    #         )
+    #     ]
+    # )
+
+    return (
+        temperature_fig,
+        rain_fig,
+        snow_fig,
+        statistics_text,
+    )  # current_weather
 
 
-    engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
-    db_conn = engine.connect()
-
-    data = get_monthly_data(selected_country, db_conn)
-
-    if not data.empty:
-        mean_temperature_fig = px.line(data,
-                                        x='month_year',
-                                        y='mean_temp',
-                                        title=f"Mean temperature in {selected_country}")
-
-        mean_sunhours_fig = px.line(data,
-                                    x='month_year',
-                                    y='mean_sunhours',
-                                    title=f"Mean sunhours in {selected_country}")
-    else:
-        mean_temperature_fig = px.line(title=f"No data available for {selected_country}")
-        mean_sunhours_fig = px.line(title=f"No data available for {selected_country}")
-
-    db_conn.close()
-
-    return temperature_fig, rain_fig, snow_fig, statistics_text, current_weather, mean_temperature_fig, mean_sunhours_fig
-
-
+# Current weather callback
 @app.callback(
-    (Output("valueTemperature", "children"),
-    Output("valueRain", "children"),
-    Output("valueSnow", "children"),),
+    (
+        Output("valueTemperature", "children"),
+        Output("valueRain", "children"),
+        Output("valueSnow", "children"),
+    ),
     Input("retrieve-button", "n_clicks"),
-    Input("country-dropdown", "value")
+    Input("country-dropdown", "value"),
 )
 def update_output(n_clicks, country):
     if n_clicks is not None and n_clicks > 0:
         # The button has been pressed
-        latitude = weather_data.loc[weather_data['country'] == country]["latitude"].tolist()[0]
-        longitude = weather_data.loc[weather_data['country'] == country]["longitude"].tolist()[0]
+        latitude = weather_data.loc[weather_data["country"] == country][
+            "latitude"
+        ].tolist()[0]
+        longitude = weather_data.loc[weather_data["country"] == country][
+            "longitude"
+        ].tolist()[0]
         api_string = "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,rain,snowfall&forecast_days=1"
         final_string = api_string.format(latitude=latitude, longitude=longitude)
         r = requests.get(final_string)
@@ -452,8 +502,64 @@ def update_output(n_clicks, country):
         snow = j["current"]["snowfall"]
         return temp_mean, rain, snow
     else:
-        return "", "",""
+        return "", "", ""
 
+
+# Agri production Callback
+@app.callback(
+    Output("line-chart", "figure"),
+    [Input("country-dropdown-prod", "value"), Input("type-dropdown", "value")],
+)
+def update_line_chart(selected_country, selected_types):
+    # Filter data based on selected country and types
+    filtered_df = agri_data[
+        (agri_data["Country"] == selected_country)
+        & (agri_data["Type"].isin(selected_types))
+    ]
+
+    # Create traces for each selected type
+    traces = []
+    for data_type in selected_types:
+        type_data = filtered_df[filtered_df["Type"] == data_type]
+        trace = dict(
+            x=type_data["Year"], y=type_data["Value"], mode="lines", name=data_type
+        )
+        traces.append(trace)
+
+    # Create the layout for the line chart
+    layout = dict(
+        title=f"{selected_country} - Value by Type Over Years",
+        xaxis=dict(title="Year"),
+        yaxis=dict(title="Value"),
+    )
+
+    # Return the Figure object
+    return dict(data=traces, layout=layout)
+
+
+# Map analytics callback
+@app.callback(
+    Output("choropleth-maps-x-graph", "figure"),
+    Input("indicator-dropdown", "value"),
+    Input("year-dropdown", "value"),
+)
+def update_choropleth(indicator, year):
+    if indicator == "Emissions":
+        map_data = em_table[em_table["Year"] == year]
+    else:
+        nut = nut_table[nut_table["Nutrient"] == indicator]
+        map_data = nut[nut["Year"] == year]
+
+    fig = px.choropleth(
+        map_data,
+        geojson=euro_countries,
+        locations="Country",
+        color="Value",
+        scope="europe",
+        featureidkey="properties.name",
+    )
+
+    return fig
 
 
 if __name__ == "__main__":

@@ -17,12 +17,23 @@ def _fetch_weather_data_from_db():
     return weather
 
 
-# Fetch list of capitals
-def _fetch_capitals():
+def _fetch_nutrient_data():
+    engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
+    nutrients = pd.read_sql_table("nutrients", engine, index_col="index")
+    return nutrients
+
+
+def _fetch_emission_data():
+    engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
+    em_table = pd.read_sql_table("emissions", engine, index_col="index")
+    return em_table
+
+
+# Fetch list of countries
+def _fetch_countries():
     weather = _fetch_weather_data_from_db()
-    capitals = weather["capital"].unique()
-    print(capitals)
-    return capitals
+    countries = weather["country"].unique()
+    return countries
 
 def get_monthly_data(selected_country, db_conn):
     data_frames = []
