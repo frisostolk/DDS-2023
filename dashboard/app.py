@@ -18,10 +18,7 @@ from src.data_fetching import (
     _fetch_capitals,
     _fetch_prod_data_from_db,
     _fetch_weather_data_from_db,
-    get_mean_temp,
-    get_mean_rain,
-    get_mean_snow,
-    get_mean_sun,
+    get_monthly_data,
 )
 
 # load data to db
@@ -175,19 +172,7 @@ app.layout = html.Div(
                                         style={
                                             "display": "block"
                                         },
-                                    ),
-                                    dcc.Graph(
-                                         id="meanrain-plot",
-                                         style={
-                                            "display": "none"
-                                         },
-                                    ),
-                                    dcc.Graph(
-                                         id="meansnow-plot",
-                                         style={
-                                             "display": "none"
-                                         },
-                                    ),  
+                                    ), 
                                     dcc.Graph(
                                         id="meanSuntime-plot",
                                         style={
@@ -269,26 +254,6 @@ def update_graph_visibility(selected_option):
     else:
         return {"display": "none"}
 
-#mean rainfall callback
-@app.callback(
-    Output("meanrain-plot", "style"), Input("weather-analytics-dropdown", "value")
-)
-def update_graph_visibility(selected_option):
-    if selected_option == "rain-time":
-        return {"display": "block"}
-    else:
-        return {"display": "none"}
-
-#mean snowfall callback
-@app.callback(
-    Output("meansnow-plot", "style"), Input("weather-analytics-dropdown", "value")
-)
-def update_graph_visibility(selected_option):
-    if selected_option == "snow-time":
-        return {"display": "block"}
-    else:
-        return {"display": "none"}
-
 #mean Suntime callback
 @app.callback(
     Output("meanSuntime-plot", "style"), Input("weather-analytics-dropdown", "value")
@@ -308,8 +273,6 @@ def update_graph_visibility(selected_option):
         Output("statistics", "children"),
         Output("weather","children"),
         Output("meantemperature-plot", "figure"),
-        Output("meanrain-plot", "figure"),
-        Output("meansnow-plot", "figure"),
         Output("meanSuntime-plot", "figure"),
     ],
     [
@@ -443,56 +406,29 @@ def update_plots(selected_country, start_date, end_date):
             ])
         ])
 
+
     engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
     db_conn = engine.connect()
-    monthly_temp_data = []
-    temp_date = []
-    monthly_rain_data = []
-    rain_date = []
-    monthly_snow_data = []
-    snow_date = []
-    monthly_sunhours_data = []
-    sunhours_date = []
 
-    for year in range(2013, 2024):
-        for month in range(1, 13):
-            formatted_month = str(month).zfill(2)
-            formatted_date = f"{year}.{formatted_month}"
-            get_mean_temp(selected_country, year, formatted_month, db_conn, monthly_temp_data, temp_date, formatted_date)
-            get_mean_rain(selected_country, year, formatted_month, db_conn, monthly_rain_data, rain_date, formatted_date)
-            get_mean_snow(selected_country, year, formatted_month, db_conn, monthly_snow_data, snow_date, formatted_date)
-            get_mean_sun(selected_country, year, formatted_month, db_conn, monthly_sunhours_data, sunhours_date, formatted_date)
+    data = get_monthly_data(selected_country, db_conn)
 
-            mean_temperature_df = pd.DataFrame({'date':temp_date, 'mean_temp_value':monthly_temp_data})
-            mean_rainfall_df = pd.DataFrame({'date':rain_date, 'mean_rain_value':monthly_rain_data})
-            mean_snowfall_df = pd.DataFrame({'date':snow_date, 'mean_snow_value':monthly_snow_data})
-            mean_sunhours_df = pd.DataFrame({'date':sunhours_date, 'mean_sunhours_value':monthly_sunhours_data})
+    if not data.empty:
+        mean_temperature_fig = px.line(data,
+                                        x='month_year',
+                                        y='mean_temp',
+                                        title=f"Mean temperature in {selected_country}")
 
-            mean_temperature_fig = px.line(mean_temperature_df,
-                x='date' ,
-                y='mean_temp_value',
-                title=f"Mean temperature in {selected_country}",
-            )
+        mean_sunhours_fig = px.line(data,
+                                    x='month_year',
+                                    y='mean_sunhours',
+                                    title=f"Mean sunhours in {selected_country}")
+    else:
+        mean_temperature_fig = px.line(title=f"No data available for {selected_country}")
+        mean_sunhours_fig = px.line(title=f"No data available for {selected_country}")
 
-            mean_rainfall_fig = px.line(mean_rainfall_df,
-                x='date' ,
-                y='mean_rain_value',
-                title=f"Mean rainfall in {selected_country}",
-            )
+    db_conn.close()
 
-            mean_snowfall_fig = px.line(mean_snowfall_df,
-                x='date' ,
-                y='mean_snow_value',
-                title=f"Mean snowfall in {selected_country}",
-            )
-
-            mean_sunhours_fig = px.line(mean_sunhours_df,
-                x='date' ,
-                y='mean_sunhours_value',
-                title=f"Mean sunhours in {selected_country}",
-            )
-
-    return temperature_fig, rain_fig, snow_fig, statistics_text, current_weather, mean_temperature_fig, mean_rainfall_fig, mean_snowfall_fig, mean_sunhours_fig
+    return temperature_fig, rain_fig, snow_fig, statistics_text, current_weather, mean_temperature_fig, mean_sunhours_fig
 
 
 @app.callback(
