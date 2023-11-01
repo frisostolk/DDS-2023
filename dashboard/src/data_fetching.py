@@ -31,13 +31,12 @@ def get_monthly_data(selected_country, db_conn):
             SELECT 
             TO_CHAR(w.date, 'YYYY-MM') as month_year,
             AVG(w.temp_mean) as mean_temp,
-            EXTRACT(EPOCH FROM (MAX(w.sunset) - MIN(w.sunrise))) / 3600 as mean_sunhours
+            EXTRACT(EPOCH FROM AVG(w.sunset - w.sunrise)) / 3600 as mean_sunhours
             FROM weather as w
             WHERE w.country = '{selected_country}'
             AND EXTRACT(YEAR FROM w.date) = {year}
             GROUP BY month_year
         '''
-
         table = pd.read_sql(query, db_conn)
         if not table.empty:
             data_frames.append(table)
