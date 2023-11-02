@@ -8,6 +8,9 @@ import pandas as pd
 from datetime import datetime
 import requests
 import json
+import plotly.graph_objects as go
+from sklearn.linear_model import LinearRegression
+import numpy as np
 
 from src.data_import import _load_data_to_db
 
@@ -22,7 +25,7 @@ from src.data_fetching import (
 )
 
 # Load Data to database
-# _load_data_to_db()
+_load_data_to_db()
 
 agri_data = _fetch_prod_data_from_db()
 
@@ -38,6 +41,8 @@ euro_countries = gpd.read_file("./static/custom.geo.json")
 weather_data = _fetch_weather_data_from_db()
 
 countries = weather_data["country"].unique()
+
+data = pd.read_csv('../data/weather/weather.csv')
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
@@ -249,7 +254,68 @@ app.layout = html.Div(
                         dbc.Col(
                             html.Div(
                                 children=[
-                                    # Add other analytics here
+                                    # regression Analytics
+                                    html.Label("Select Country:"),
+                                    dcc.Dropdown(
+                                        id="country-dropdown-regression",
+                                        options=[
+                                            {"label": country, "value": country}
+                                            for country in agri_data["Country"].unique()
+                                            if pd.notna(country)
+                                        ],
+                                        value=agri_data["Country"].iloc[
+                                            0
+                                        ],  # Default selected value
+                                        multi=False,
+                                    ),
+                                    html.Label("Select Type:"),
+                                    dcc.Dropdown(
+                                        id="type-dropdown-regression",
+                                        options=[
+                                            {"label": data_type, "value": data_type}
+                                            for data_type in agri_data["Type"].unique()
+                                            if pd.notna(data_type)
+                                        ],
+                                        value='Cereals',
+                                        multi=False,  # Allow multiple selections
+                                    ),
+                                    html.Label("Select rain, max temp, min temp, snow of 2023 to predict on:"),
+                                    dcc.Input(
+                                        id="selected_rain",
+                                        type = 'number',
+                                        placeholder='rain',
+                                        value = 0,
+                                    ),
+                                    dcc.Input(
+                                        id="selected_max",
+                                        type = 'number',
+                                        placeholder='max temperature',
+                                        value = 0,
+                                    ),
+                                    dcc.Input(
+                                        id="selected_min",
+                                        type = 'number',
+                                        placeholder='min temperature',
+                                        value= 0,
+                                    ),
+                                    dcc.Input(
+                                        id="selected_snow",
+                                        type = 'number',
+                                        placeholder='snow',
+                                        value=0,
+                                    ),
+                                    dcc.Graph(id="line-chart-regression"),
+                                ]
+                            ),
+                            width=6,
+                        ),
+                    ]
+                ),
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            html.Div(
+                                children=[
                                 ]
                             ),
                             width=6,
@@ -508,7 +574,7 @@ def update_output(n_clicks, country):
 # Agri production Callback
 @app.callback(
     Output("line-chart", "figure"),
-    [Input("country-dropdown-prod", "value"), Input("type-dropdown", "value")],
+    [Input("country-dropdown-prod", "value"), Input("type-dropdown", "value")]
 )
 def update_line_chart(selected_country, selected_types):
     # Filter data based on selected country and types
@@ -559,6 +625,51 @@ def update_choropleth(indicator, year):
         featureidkey="properties.name",
     )
 
+    return fig
+
+
+# regression callback
+@app.callback(
+    Output("line-chart-regression", "figure"),
+    [Input("country-dropdown-regression", "value"), Input("type-dropdown-regression", "value"),Input('selected_rain','value'), Input('selected_min','value'), Input('selected_max','value'), Input('selected_snow','value')]
+)
+def update_regression_chart(selected_country, selected_type,selected_rain,selected_min,selected_max,selected_snow):
+
+    y_train=[]
+    filtered_df = agri_data[(agri_data['Country'] == selected_country) & (agri_data['Type'].isin([selected_type]))]
+    y_train = np.array(filtered_df['Value'])
+    y_train= y_train[0:10]
+
+    filtered_data_weather = data[(data['country'] == selected_country)]
+    pd.options.mode.chained_assignment = None  # default='warn'
+    filtered_data_weather[['Year','Month','Day']] = filtered_data_weather['date'].str.split('-',expand=True)
+
+    #Fill train data with mean maxtemp, mintemp, snow and rain per year. But not 2023
+    X_train = []
+    for i in filtered_data_weather['Year'].unique():
+        if i == '2023':
+            break
+        X_train.append([np.mean(filtered_data_weather[filtered_data_weather['Year'] == i]['rain']),
+        np.mean(filtered_data_weather[filtered_data_weather['Year'] == i]['temp_max']),
+        np.mean(filtered_data_weather[filtered_data_weather['Year'] == i]['temp_min']),
+        np.mean(filtered_data_weather[filtered_data_weather['Year'] == i]['snow'])])
+    X_train = np.array(X_train)
+
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    new_data = np.array([selected_rain, selected_min,selected_max,selected_snow]).reshape(1,-1)
+    # Make predictions on the new data
+    new_prediction = model.predict(new_data)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=filtered_df['Year'],y=filtered_df['Value'] ,mode='markers', name='Prodcution'))
+    fig.add_trace(go.Scatter(x=['2023'], y=new_prediction, mode='markers', name='Prediction'))
+    fig.update_layout(
+    title="Production prediction for 2023",
+    xaxis_title="Year",
+    yaxis_title="Production",
+
+)
     return fig
 
 
