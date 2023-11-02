@@ -279,7 +279,7 @@ app.layout = html.Div(
                                         value='Cereals',
                                         multi=False,  # Allow multiple selections
                                     ),
-                                    html.Label("Select rain, max temp, min temp, snow of 2023 to predict on:"),
+                                    html.Label("Select average rain, maximum temperature, minimum temperature and snow of 2023 to predict the production on:"),
                                     dcc.Input(
                                         id="selected_rain",
                                         type = 'number',
@@ -665,7 +665,7 @@ def update_regression_chart(selected_country, selected_type,selected_rain,select
     fig.add_trace(go.Scatter(x=filtered_df['Year'],y=filtered_df['Value'] ,mode='markers', name='Prodcution'))
     fig.add_trace(go.Scatter(x=['2023'], y=new_prediction, mode='markers', name='Prediction'))
     fig.update_layout(
-    title="Production prediction for 2023",
+    title=(f"Prediction of {selected_type} production in {selected_country} for 2023"),
     xaxis_title="Year",
     yaxis_title="Production",
 
