@@ -3,7 +3,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.express as px
-#import geopandas as gpd
+import geopandas as gpd
 import pandas as pd
 from datetime import datetime
 import requests
@@ -36,7 +36,7 @@ nut_table = _fetch_nutrient_data()
 em_table = _fetch_emission_data()
 
 # Populate map using geo.json
-#euro_countries = gpd.read_file("./static/custom.geo.json")
+euro_countries = gpd.read_file("./static/custom.geo.json")
 
 weather_data = _fetch_weather_data_from_db()
 
@@ -153,8 +153,7 @@ app.layout = html.Div(
                                                     )
                                                 )
                                             ),
-                                            dbc.Row(
-                                                dbc.Col([
+                                            dbc.Col([
                                                     html.Div(
                                                                     style={
                                                                         'background-color': '#2A4D7C',
@@ -170,9 +169,30 @@ app.layout = html.Div(
                                                                 ),
                                                     html.Div(
                                                         id="statistics",
-                                                        style={**block_color, "display":"block"}
-                                                    )]
-                                                )
+                                                        style={**block_color}
+                                                    ),
+                                                    html.Div([
+                                                    html.Button("Retrieve current weather", className="btn", id="retrieve-button", style={"display": "flex", "align-items": "center","background-color": "#1285D1", "color": "white", "text-align": "center", "margin": "auto"}),
+                                                    dbc.Row(
+                                                        [
+                                                            dbc.Col(
+                                                                html.Div(
+                                                                    dbc.Row([html.Span("Temperature:"), html.Span(id="valueTemperature", children="72°F")]),
+                                                                ),
+                                                            ),
+                                                            dbc.Col(
+                                                                html.Div(
+                                                                    dbc.Row([html.Span("Rain:"), html.Span(id="valueRain", children="10%")]),
+                                                                )
+                                                            ),
+                                                            dbc.Col(
+                                                                html.Div(
+                                                                    dbc.Row([html.Span("Snow:"), html.Span(id="valueSnow", children="0%")]),
+                                                                )
+                                                            ),
+                                                        ]
+                                                    ),], style=block_color)
+                                                    ]
                                             ),
                                             html.Div(style={**block_color},
                                                 children=[
@@ -559,43 +579,6 @@ def update_plots(selected_country, start_date, end_date):
         ]
     )
 
-    # I had to comment the current weather out, it needs to be incorporated into the layout, and use callbacks when the button is pressed
-    # havent gotten around to implementing it myself
-
-    # current_weather = html.Div(
-    #     [
-    #         html.Div(
-    #             className="dashboard",
-    #             children=[
-    #                 html.Div(className="header", children="Current Weather"),
-    #                 html.Button(
-    #                     "Retrieve Now", className="button", id="retrieve-button"
-    #                 ),
-    #                 html.Div(
-    #                     className="row",
-    #                     children=[
-    #                         html.Span(className="label", children="Temperature:"),
-    #                         html.Span(id="valueTemperature", children="72°F"),
-    #                     ],
-    #                 ),
-    #                 html.Div(
-    #                     className="row",
-    #                     children=[
-    #                         html.Span(className="label", children="Rain:"),
-    #                         html.Span(id="valueRain", children="10%"),
-    #                     ],
-    #                 ),
-    #                 html.Div(
-    #                     className="row",
-    #                     children=[
-    #                         html.Span(className="label", children="Snow:"),
-    #                         html.Span(id="valueSnow", children="0%"),
-    #                     ],
-    #                 ),
-    #             ],
-    #         )
-    #     ]
-    # )
 
     return (
         temperature_fig,
@@ -669,28 +652,28 @@ def update_line_chart(selected_country, selected_types):
 
 
 # Map analytics callback
-# @app.callback(
-#     Output("choropleth-maps-x-graph", "figure"),
-#     Input("indicator-dropdown", "value"),
-#     Input("year-dropdown", "value"),
-# )
-# def update_choropleth(indicator, year):
-#     if indicator == "Emissions":
-#         map_data = em_table[em_table["Year"] == year]
-#     else:
-#         nut = nut_table[nut_table["Nutrient"] == indicator]
-#         map_data = nut[nut["Year"] == year]
+@app.callback(
+    Output("choropleth-maps-x-graph", "figure"),
+    Input("indicator-dropdown", "value"),
+    Input("year-dropdown", "value"),
+)
+def update_choropleth(indicator, year):
+    if indicator == "Emissions":
+        map_data = em_table[em_table["Year"] == year]
+    else:
+        nut = nut_table[nut_table["Nutrient"] == indicator]
+        map_data = nut[nut["Year"] == year]
 
-#     fig = px.choropleth(
-#         map_data,
-#         geojson=euro_countries,
-#         locations="Country",
-#         color="Value",
-#         scope="europe",
-#         featureidkey="properties.name",
-#     )
+    fig = px.choropleth(
+        map_data,
+        geojson=euro_countries,
+        locations="Country",
+        color="Value",
+        scope="europe",
+        featureidkey="properties.name",
+    )
 
-#     return fig
+    return fig
 
 
 # regression callback
