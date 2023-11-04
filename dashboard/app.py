@@ -26,7 +26,7 @@ from src.data_fetching import (
     _fetch_weather_data_from_db,
     _fetch_nutrient_data,
     _fetch_emission_data,
-    get_monthly_data,
+    get_monthlytemp_data,
 )
 
 # Load Data to database
@@ -77,7 +77,7 @@ app.layout = html.Div(
                         value="Netherlands",
                     ),
                     width=6,
-                    style={**nav_color, "padding":"10px"}
+                    style={**nav_color, "padding":"10px", "color": "black"}
                 ),
             ],
             className="mb-4",
@@ -483,7 +483,7 @@ def update_graph_visibility(selected_option):
         Input("country-dropdown", "value"),
         Input("date-range-picker", "start_date"),
         Input("date-range-picker", "end_date"),
-        Input('weather-data-selection', 'value'),
+        Input('weather-analytics-dropdown', 'value'),
     ],
 )
 def update_plots(selected_country, start_date, end_date, selected_data):
@@ -504,16 +504,17 @@ def update_plots(selected_country, start_date, end_date, selected_data):
         x="date",
         y="temp_mean",
         title=f"Temperature in {selected_country}",
+        labels={"date": "Date", "temp_mean": "Mean Temperature in °C"},
     )
 
     # create a rainfall line plot
     rain_fig = px.line(
-        filtered_data, x="date", y="rain", title=f"Rainfall in {selected_country}"
+        filtered_data, x="date", y="rain", title=f"Rainfall in {selected_country}", labels={"date": "Date", "rain": "Rainfall in mm"}
     )
 
     # create a snowfall line plot
     snow_fig = px.line(
-        filtered_data, x="date", y="snow", title=f"Snowfall in {selected_country}"
+        filtered_data, x="date", y="snow", title=f"Snowfall in {selected_country}", labels={"date": "Date", "rain": "Snowfall in mm"}
     )
 
     # calculate statistics not needed but I was just interesting in these statistics
@@ -593,22 +594,20 @@ def update_plots(selected_country, start_date, end_date, selected_data):
     )
 
 
+    #get the mean temperature and suntimes for the overview graph and draw these with the rain and sun in the overview graph
     engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
     db_conn = engine.connect()
     start_year = int(start_date.split('-')[0])
     end_year = int(end_date.split('-')[0])
     start_month = int(start_date.split('-')[1])
     end_month = int(end_date.split('-')[1])
-    data = get_monthlytemp_data(selected_country, db_conn, start_year, end_year, start_month, end_month, start_day, end_day)
+    data = get_monthlytemp_data(selected_country, db_conn, start_year, end_year, start_month, end_month)
     if not data.empty:
         fig = make_subplots(specs=[[{"secondary_y": True}]])  # Create subplots with a secondary y-axis
-        for data_point in selected_data:
-            if data_point == 'temp_mean':
-            fig.add_trace(go.Scatter(x=data['month_year'], y=data['mean_temp'], mode='lines', name='Temperature'))
-            elif data_point == 'sun_duration':
-                fig.add_trace(go.Scatter(x=data['month_year'], y=data['mean_sunhours'], mode='lines', name='Sunhours'))
-            else:
-                fig.add_trace(go.Scatter(x=filtered_data['date'], y=filtered_data[data_point], mode='lines', name=data_point), secondary_y=True)
+        fig.add_trace(go.Scatter(x=data['month_year'], y=data['mean_temp'], mode='lines', name='Temperature'))
+        fig.add_trace(go.Scatter(x=data['month_year'], y=data['mean_sunhours'], mode='lines', name='Sunhours'))
+        fig.add_trace(go.Scatter(x=filtered_data['date'], y=filtered_data['rain'], mode='lines', name='Rainfall'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=filtered_data['date'], y=filtered_data['snow'], mode='lines', name='Snowfall'), secondary_y=True)
 
         fig.update_layout(
             title=f'Weather Data in {selected_country}',

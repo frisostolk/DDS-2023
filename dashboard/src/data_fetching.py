@@ -35,9 +35,23 @@ def _fetch_countries():
     countries = weather["country"].unique()
     return countries
 
-def get_monthly_data(selected_country, db_conn, start_year, end_year): 
+#Calculate the mean temperatures and sunhours for the months in the date picker, return an dataframe with the values
+def get_monthlytemp_data(selected_country, db_conn, start_year, end_year, start_month, end_month): 
     data_frames = []
+    if end_month == 12:
+        end_year = end_year + 1
+        end_month = 1
     for year in range(start_year, end_year + 1):
+        if year == start_year:
+            month_range_start = start_month
+        else:
+            month_range_start = 1
+
+        if year == end_year:
+            month_range_end = end_month + 1
+        else:
+            month_range_end = 12
+
         query = f'''
             SELECT 
             TO_CHAR(w.date, 'YYYY-MM') as month_year,
@@ -46,6 +60,7 @@ def get_monthly_data(selected_country, db_conn, start_year, end_year):
             FROM weather as w
             WHERE w.country = '{selected_country}'
             AND EXTRACT(YEAR FROM w.date) = {year}
+            AND EXTRACT(MONTH FROM w.date) BETWEEN {month_range_start} AND {month_range_end}
             GROUP BY month_year
         '''
         table = pd.read_sql(query, db_conn)
