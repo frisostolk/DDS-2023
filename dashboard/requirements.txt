@@ -3,9 +3,10 @@ plotly
 dash
 dash-bootstrap-components
 openpyxl
-psycopg2-binary 
-sqlalchemy 
+psycopg2-binary
+sqlalchemy
 pulp 
 country_converter
 python-gnupg
 geopandas
+scikit-learn

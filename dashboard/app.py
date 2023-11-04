@@ -12,6 +12,9 @@ from sqlalchemy import create_engine, text, inspect, Table
 import statistics
 from plotly.subplots import make_subplots
 import plotly.graph_objs as go
+import plotly.graph_objects as go
+from sklearn.linear_model import LinearRegression
+import numpy as np
 
 from src.data_import import _load_data_to_db
 
@@ -27,7 +30,7 @@ from src.data_fetching import (
 )
 
 # Load Data to database
-# _load_data_to_db()
+_load_data_to_db()
 
 agri_data = _fetch_prod_data_from_db()
 
@@ -44,96 +47,91 @@ weather_data = _fetch_weather_data_from_db()
 
 countries = weather_data["country"].unique()
 
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
+data = pd.read_csv('../data/weather/weather.csv')
+
+app = dash.Dash(__name__, suppress_callback_exceptions=True,external_stylesheets=[dbc.themes.BOOTSTRAP])
+app_color = {"background-color": "#F1F1F1", "color": "black", "text-align": "center"}
+nav_color = {"background-color": "#2A4D7C", "color": "white", "text-align": "center"}
+block_color = {"background-color": "#FFFFFF", "color": "black", "text-align": "center"}
+margin_style = {"margin": "10px"}  # Add padding
+padding_style = {"padding": "10px"}
 
 app.layout = html.Div(
-    style={},
+    style={**app_color},
     children=[
-        html.H1("Agriculture Dashboard"),
+        # STARTING NAV BAR
+        dbc.Row(
+            [
+                dbc.Col(
+                    html.Div(
+                        [
+                            html.H1("Agriculture Dashboard")
+                        ]
+                    ),
+                    width=6,
+                ),
+                dbc.Col(
+                    dcc.Dropdown(
+                        id="country-dropdown",
+                        options=[{"label": country, "value": country} for country in countries],
+                        value="Netherlands",
+                    ),
+                    width=6,
+                    style={**nav_color, "padding":"10px"}
+                ),
+            ],
+            className="mb-4",
+            style={**nav_color}
+        ),
+        # ENDING NAV BAR
+        # STARTING FIRST ROW WITH WEATHER AND PRODUCTION
         html.Div(
-            style={},
+            style={**app_color},
             children=[
                 dbc.Row(
                     [
                         dbc.Col(
-                            html.Div(
+                            html.Div(style={**app_color},
                                 children=[
-                                    # Weather Analytics Block
                                     html.Div(
-                                        style={},
+                                                    style={
+                                                        'background-color': '#2A4D7C',
+                                                        'color': 'white',
+                                                        'text-align': 'center',
+                                                        'display': 'flex',
+                                                        'align-items': 'center',
+                                                        'justify-content': 'center'
+                                                    },
+                                                    children=[
+                                                        html.H2("Weather Data")
+                                                    ]
+                                                ),
+                                    # Weather Analytics Block
+                                    html.Div(style=app_color,
                                         children=[
-                                            dbc.Row(
-                                                [
-                                                    dbc.Col(
-                                                        html.Div(
-                                                            [
-                                                                html.Label(
-                                                                    "Select a country:"
-                                                                ),
-                                                                dcc.Dropdown(
-                                                                    id="country-dropdown",
-                                                                    options=[
-                                                                        {
-                                                                            "label": country,
-                                                                            "value": country,
-                                                                        }
-                                                                        for country in countries
-                                                                    ],
-                                                                    value="Netherlands",
-                                                                ),
-                                                            ]
-                                                        ),
-                                                        width=6,
-                                                    ),
-                                                    dbc.Col(
-                                                        html.Div(
-                                                            [
-                                                                html.Label(
-                                                                    "Select Analytics"
-                                                                ),
-                                                                dcc.Dropdown(
-                                                                    id="weather-analytics-dropdown",
-                                                                    options=[
-                                                                        {
-                                                                            "label": "Temperature Time Series",
-                                                                            "value": "temp-time",
-                                                                        },
-                                                                        {
-                                                                            "label": "Rainfall Time Series",
-                                                                            "value": "rain-time",
-                                                                        },
-                                                                        {
-                                                                            "label": "Snowfall Time Series",
-                                                                            "value": "snow-time",
-                                                                        },
-                                                                        # {
-                                                                        #     "label": "Summary",
-                                                                        #     "value": "summary",
-                                                                        # },
-                                                                    ],
-                                                                    value="temp-time",
-                                                                ),
-                                                            ]
-                                                        ),
-                                                        width=6,
-                                                    ),
+                                            html.Div([
+                                                dbc.Row([
+                                                    dbc.Col(html.Label("Select Analytics"), width=6),
+                                                    dbc.Col(dcc.Dropdown(
+                                                        id="weather-analytics-dropdown",
+                                                        options=[
+                                                            {"label": "Temperature Time Series", "value": "temp-time"},
+                                                            {"label": "Rainfall Time Series", "value": "rain-time"},
+                                                            {"label": "Snowfall Time Series", "value": "snow-time"},
+                                                        ],
+                                                        value="temp-time",
+                                                    ), width=4)
+                                                ]),
+                                                dbc.Row([
+                                                    dbc.Col(html.Label("Select a Date Range"), width=6),
+                                                    dbc.Col(dcc.DatePickerRange(
+                                                        id="date-range-picker",
+                                                        start_date="2023-01-01",
+                                                        end_date="2023-12-31",
+                                                    ), width=4)
                                                 ]
-                                            ),
-                                            html.Label("Select a date range:"),
-                                            dcc.DatePickerRange(
-                                                id="date-range-picker",
-                                                start_date="2016-01-01",
-                                                end_date="2020-12-31",
-                                            ),
-                                            dcc.Checklist(
-                                                id='weather-data-selection',
-                                                options=[
-                                                    {'label': 'Temperature', 'value': 'temp_mean'},
-                                                    {'label': 'Rainfall', 'value': 'rain'},
-                                                    {'label': 'Snowfall', 'value': 'snow'}
-                                                ],
-                                                 value=['temp_mean', 'rain', 'snow']
-                                            ),
+                                                )
+                                            ],style=block_color),
                                             dbc.Row(
                                                 dbc.Col(
                                                     html.Div(
@@ -148,55 +146,145 @@ app.layout = html.Div(
                                                                 id="temperature-plot",
                                                                 style={
                                                                     "display": "block"
-                                                                },
+                                                                }
                                                             ),
                                                             dcc.Graph(
                                                                 id="rain-plot",
                                                                 style={
                                                                     "display": "none"
-                                                                },
+                                                                }
                                                             ),
                                                             dcc.Graph(
                                                                 id="snow-plot",
                                                                 style={
                                                                     "display": "none"
-                                                                },
-                                                            ),
-                                                        ]
+                                                                }
+                                                            )
+                                                        ],style=block_color
                                                     )
                                                 )
                                             ),
-                                            dbc.Row(
-                                                dbc.Col(
+                                            dbc.Col([
+                                                    html.Div(
+                                                                    style={
+                                                                        'background-color': '#2A4D7C',
+                                                                        'color': 'white',
+                                                                        'text-align': 'center',
+                                                                        'display': 'flex',
+                                                                        'align-items': 'center',
+                                                                        'justify-content': 'center'
+                                                                    },
+                                                                    children=[
+                                                                        html.H3("Statistics")
+                                                                    ]
+                                                                ),
                                                     html.Div(
                                                         id="statistics",
-                                                        style={"display": "block"},
+                                                        style={**block_color}
                                                     ),
-                                                )
+                                                    html.Div([
+                                                    html.Button("Retrieve current weather", className="btn", id="retrieve-button", style={"display": "flex", "align-items": "center","background-color": "#1285D1", "color": "white", "text-align": "center", "margin": "auto"}),
+                                                    dbc.Row(
+                                                        [
+                                                            dbc.Col(
+                                                                html.Div(
+                                                                    dbc.Row([html.Span("Temperature:"), html.Span(id="valueTemperature", children="72°F")]),
+                                                                ),
+                                                            ),
+                                                            dbc.Col(
+                                                                html.Div(
+                                                                    dbc.Row([html.Span("Rain:"), html.Span(id="valueRain", children="10%")]),
+                                                                )
+                                                            ),
+                                                            dbc.Col(
+                                                                html.Div(
+                                                                    dbc.Row([html.Span("Snow:"), html.Span(id="valueSnow", children="0%")]),
+                                                                )
+                                                            ),
+                                                        ]
+                                                    ),], style=block_color)
+                                                    ]
                                             ),
-                                        ],
-                                    ),
-                                ],
+                                            html.Div(style={**block_color},
+                                                children=[
+                                                    # EU map analytics
+                                                    html.Div(
+                                                        style={
+                                                            'margin-top': '20px',
+                                                            'background-color': '#2A4D7C',
+                                                            'color': 'white',
+                                                            'text-align': 'center',
+                                                            'display': 'flex',
+                                                            'align-items': 'center',
+                                                            'justify-content': 'center'
+                                                        },
+                                                        children=[
+                                                            html.H3("Agricultural Indicators")
+                                                        ]
+                                                    ),
+                                                    html.P("Select an Indicator:"),
+                                                    dcc.Dropdown(
+                                                        id="indicator-dropdown",
+                                                        options=[
+                                                            {
+                                                                "label": "Nitrogen",
+                                                                "value": "Nitrogen",
+                                                            },
+                                                            {
+                                                                "label": "Phosphorus",
+                                                                "value": "Phosphorus",
+                                                            },
+                                                            {
+                                                                "label": "Emissions",
+                                                                "value": "Emissions",
+                                                            },
+                                                        ],
+                                                        value="Emissions",
+                                                    ),
+                                                    dcc.Dropdown(
+                                                        id="year-dropdown",
+                                                        options=[
+                                                            {"label": "2010", "value": "2010"},
+                                                            {"label": "2011", "value": "2011"},
+                                                            {"label": "2012", "value": "2012"},
+                                                            {"label": "2013", "value": "2013"},
+                                                            {"label": "2014", "value": "2014"},
+                                                            {"label": "2015", "value": "2015"},
+                                                            {"label": "2016", "value": "2016"},
+                                                            {"label": "2017", "value": "2017"},
+                                                            {"label": "2018", "value": "2018"},
+                                                            {"label": "2019", "value": "2019"},
+                                                            {"label": "2020", "value": "2020"},
+                                                            {"label": "2021", "value": "2021"},
+                                                        ],
+                                                        value="2021",
+                                                    ),
+                                                    dcc.Graph(id="choropleth-maps-x-graph"),
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
                             ),
-                            width=6,
+                            width=6, style=app_color
                         ),
-                        dbc.Col(
+                        dbc.Col([
                             html.Div(
+                                style={
+                                    'background-color': '#2A4D7C',
+                                    'color': 'white',
+                                    'text-align': 'center',
+                                    'display': 'flex',
+                                    'align-items': 'center',
+                                    'justify-content': 'center'
+                                },
+                                children=[
+                                    html.H2("Production Data")
+                                ]
+                            ),
+                            html.Div(style=block_color,
                                 children=[
                                     # Production Analytics
-                                    html.Label("Select Country:"),
-                                    dcc.Dropdown(
-                                        id="country-dropdown-prod",
-                                        options=[
-                                            {"label": country, "value": country}
-                                            for country in agri_data["Country"].unique()
-                                            if pd.notna(country)
-                                        ],
-                                        value=agri_data["Country"].iloc[
-                                            0
-                                        ],  # Default selected value
-                                        multi=False,
-                                    ),
                                     html.Label("Select Types:"),
                                     dcc.Dropdown(
                                         id="type-dropdown",
@@ -213,69 +301,124 @@ app.layout = html.Div(
                                     dcc.Graph(id="line-chart"),
                                 ]
                             ),
-                            width=6,
-                        ),
-                    ]
-                ),
-                dbc.Row(
-                    [
-                        dbc.Col(
                             html.Div(
+                                style={
+                                    'margin-top' : '20px',
+                                    'background-color': '#2A4D7C',
+                                    'color': 'white',
+                                    'text-align': 'center',
+                                    'display': 'flex',
+                                    'align-items': 'center',
+                                    'justify-content': 'center'
+                                },
                                 children=[
-                                    # EU map analytics
-                                    html.H4("Agricultural Indicators"),
-                                    html.P("Select an Indicator:"),
-                                    dcc.Dropdown(
-                                        id="indicator-dropdown",
-                                        options=[
-                                            {
-                                                "label": "Nitrogen",
-                                                "value": "Nitrogen",
-                                            },
-                                            {
-                                                "label": "Phosphorus",
-                                                "value": "Phosphorus",
-                                            },
-                                            {
-                                                "label": "Emissions",
-                                                "value": "Emissions",
-                                            },
-                                        ],
-                                        value="Emissions",
-                                    ),
-                                    dcc.Dropdown(
-                                        id="year-dropdown",
-                                        options=[
-                                            {"label": "2010", "value": "2010"},
-                                            {"label": "2011", "value": "2011"},
-                                            {"label": "2012", "value": "2012"},
-                                            {"label": "2013", "value": "2013"},
-                                            {"label": "2014", "value": "2014"},
-                                            {"label": "2015", "value": "2015"},
-                                            {"label": "2016", "value": "2016"},
-                                            {"label": "2017", "value": "2017"},
-                                            {"label": "2018", "value": "2018"},
-                                            {"label": "2019", "value": "2019"},
-                                            {"label": "2020", "value": "2020"},
-                                            {"label": "2021", "value": "2021"},
-                                        ],
-                                        value="2021",
-                                    ),
-                                    dcc.Graph(id="choropleth-maps-x-graph"),
+                                    html.H2("Production prediction")
                                 ]
                             ),
-                            width=6,
-                        ),
-                        dbc.Col(
-                            html.Div(
+                            dbc.Col(
+                            html.Div(style={**block_color},
                                 children=[
-                                    # Add other analytics here
+                                    html.Label("Select Type:"),
+                                    dcc.Dropdown(
+                                        id="type-dropdown-regression",
+                                        options=[
+                                            {"label": data_type, "value": data_type}
+                                            for data_type in agri_data["Type"].unique()
+                                            if pd.notna(data_type)
+                                        ],
+                                        value='Cereals',
+                                        multi=False,  # Allow multiple selections
+                                    ),
+                                    dbc.Row([
+                                        dbc.Col([
+                                            html.Div(
+                                                className="input-group",
+                                                children=[
+                                                    html.Div(
+                                                        className="input-group-prepend",
+                                                        children=[
+                                                            html.Span("Average rain", className="input-group-text", id="basic-addon3")
+                                                        ]
+                                                    ),
+                                                    dcc.Input(
+                                                        type="text",
+                                                        className="form-control",
+                                                        id="selected_rain",
+                                                        value=0
+                                                    )
+                                                ]
+                                            )]
+                                            ),
+                                        dbc.Col([
+                                            html.Div(
+                                                className="input-group",
+                                                children=[
+                                                    html.Div(
+                                                        className="input-group-prepend",
+                                                        children=[
+                                                            html.Span("Max temperature", className="input-group-text", id="basic-addon4")
+                                                        ]
+                                                    ),
+                                                    dcc.Input(
+                                                        type="text",
+                                                        className="form-control",
+                                                        id="selected_max",
+                                                        value=0
+                                                    )
+                                                ]
+                                            )],
+                                            )
+                                        ]
+                                        ),
+                                    dbc.Row([
+                                        dbc.Col([
+                                            html.Div(
+                                                className="input-group",
+                                                children=[
+                                                    html.Div(
+                                                        className="input-group-prepend",
+                                                        children=[
+                                                            html.Span("Min temperature", className="input-group-text", id="basic-addon5")
+                                                        ]
+                                                    ),
+                                                    dcc.Input(
+                                                        type="text",
+                                                        className="form-control",
+                                                        id="selected_min",
+                                                        value=0
+                                                    )
+                                                ]
+                                            )]
+                                            ),
+                                        dbc.Col([
+                                            html.Div(
+                                                className="input-group",
+                                                children=[
+                                                    html.Div(
+                                                        className="input-group-prepend",
+                                                        children=[
+                                                            html.Span("Snow", className="input-group-text", id="basic-addon6")
+                                                        ]
+                                                    ),
+                                                    dcc.Input(
+                                                        type="text",
+                                                        className="form-control",
+                                                        id="selected_snow",
+                                                        value=0
+                                                    )
+                                                ]
+                                            )],
+                                            )
+                                        ]),
+                                    dcc.Graph(id="line-chart-regression")
                                 ]
-                            ),
+                            )
+                        ), 
+                            ],
                             width=6,
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
         ),
     ],
@@ -389,7 +532,6 @@ def update_plots(selected_country, start_date, end_date, selected_data):
     # create statistics text
     statistics_text = html.Div(
         [
-            html.H2("Statistics"),
             dbc.Row(
                 [
                     dbc.Col(
@@ -450,55 +592,21 @@ def update_plots(selected_country, start_date, end_date, selected_data):
         ]
     )
 
-    # I had to comment the current weather out, it needs to be incorporated into the layout, and use callbacks when the button is pressed
-    # havent gotten around to implementing it myself
-
-    # current_weather = html.Div(
-    #     [
-    #         html.Div(
-    #             className="dashboard",
-    #             children=[
-    #                 html.Div(className="header", children="Current Weather"),
-    #                 html.Button(
-    #                     "Retrieve Now", className="button", id="retrieve-button"
-    #                 ),
-    #                 html.Div(
-    #                     className="row",
-    #                     children=[
-    #                         html.Span(className="label", children="Temperature:"),
-    #                         html.Span(id="valueTemperature", children="72°F"),
-    #                     ],
-    #                 ),
-    #                 html.Div(
-    #                     className="row",
-    #                     children=[
-    #                         html.Span(className="label", children="Rain:"),
-    #                         html.Span(id="valueRain", children="10%"),
-    #                     ],
-    #                 ),
-    #                 html.Div(
-    #                     className="row",
-    #                     children=[
-    #                         html.Span(className="label", children="Snow:"),
-    #                         html.Span(id="valueSnow", children="0%"),
-    #                     ],
-    #                 ),
-    #             ],
-    #         )
-    #     ]
-    # )
 
     engine = create_engine("postgresql://student:infomdss@db_dashboard:5432/dashboard")
     db_conn = engine.connect()
     start_year = int(start_date.split('-')[0])
     end_year = int(end_date.split('-')[0])
-    data = get_monthly_data(selected_country, db_conn, start_year, end_year)
+    start_month = int(start_date.split('-')[1])
+    end_month = int(end_date.split('-')[1])
+    data = get_monthlytemp_data(selected_country, db_conn, start_year, end_year, start_month, end_month, start_day, end_day)
     if not data.empty:
         fig = make_subplots(specs=[[{"secondary_y": True}]])  # Create subplots with a secondary y-axis
-
         for data_point in selected_data:
             if data_point == 'temp_mean':
-                fig.add_trace(go.Scatter(x=data['month_year'], y=data['mean_temp'], mode='lines', name='Temperature'))
+            fig.add_trace(go.Scatter(x=data['month_year'], y=data['mean_temp'], mode='lines', name='Temperature'))
+            elif data_point == 'sun_duration':
+                fig.add_trace(go.Scatter(x=data['month_year'], y=data['mean_sunhours'], mode='lines', name='Sunhours'))
             else:
                 fig.add_trace(go.Scatter(x=filtered_data['date'], y=filtered_data[data_point], mode='lines', name=data_point), secondary_y=True)
 
@@ -554,7 +662,7 @@ def update_output(n_clicks, country):
 # Agri production Callback
 @app.callback(
     Output("line-chart", "figure"),
-    [Input("country-dropdown-prod", "value"), Input("type-dropdown", "value")],
+    [Input("country-dropdown", "value"), Input("type-dropdown", "value")]
 )
 def update_line_chart(selected_country, selected_types):
     # Filter data based on selected country and types
@@ -605,6 +713,51 @@ def update_choropleth(indicator, year):
         featureidkey="properties.name",
     )
 
+    return fig
+
+
+# regression callback
+@app.callback(
+    Output("line-chart-regression", "figure"),
+    [Input("country-dropdown", "value"), Input("type-dropdown-regression", "value"),Input('selected_rain','value'), Input('selected_min','value'), Input('selected_max','value'), Input('selected_snow','value')]
+)
+def update_regression_chart(selected_country, selected_type,selected_rain,selected_min,selected_max,selected_snow):
+
+    y_train=[]
+    filtered_df = agri_data[(agri_data['Country'] == selected_country) & (agri_data['Type'].isin([selected_type]))]
+    y_train = np.array(filtered_df['Value'])
+    y_train= y_train[0:10]
+
+    filtered_data_weather = data[(data['country'] == selected_country)]
+    pd.options.mode.chained_assignment = None  # default='warn'
+    filtered_data_weather[['Year','Month','Day']] = filtered_data_weather['date'].str.split('-',expand=True)
+
+    #Fill train data with mean maxtemp, mintemp, snow and rain per year. But not 2023
+    X_train = []
+    for i in filtered_data_weather['Year'].unique():
+        if i == '2023':
+            break
+        X_train.append([np.mean(filtered_data_weather[filtered_data_weather['Year'] == i]['rain']),
+        np.mean(filtered_data_weather[filtered_data_weather['Year'] == i]['temp_max']),
+        np.mean(filtered_data_weather[filtered_data_weather['Year'] == i]['temp_min']),
+        np.mean(filtered_data_weather[filtered_data_weather['Year'] == i]['snow'])])
+    X_train = np.array(X_train)
+
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    new_data = np.array([selected_rain, selected_min,selected_max,selected_snow]).reshape(1,-1)
+    # Make predictions on the new data
+    new_prediction = model.predict(new_data)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=filtered_df['Year'],y=filtered_df['Value'] ,mode='markers', name='Prodcution'))
+    fig.add_trace(go.Scatter(x=['2023'], y=new_prediction, mode='markers', name='Prediction'))
+    fig.update_layout(
+    title=(f"Prediction of {selected_type} production in {selected_country} for 2023"),
+    xaxis_title="Year",
+    yaxis_title="Production",
+
+)
     return fig
 
 
