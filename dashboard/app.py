@@ -15,6 +15,9 @@ import plotly.graph_objs as go
 import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import r2_score
 
 from src.data_import import _load_data_to_db
 
@@ -723,6 +726,13 @@ def update_choropleth(indicator, year):
 def update_regression_chart(selected_country, selected_type,selected_rain,selected_min,selected_max,selected_snow):
 
     y_train=[]
+    try:
+        selected_rain = float(selected_rain)
+        selected_min = float(selected_min)
+        selected_max = float(selected_max)
+        selected_snow = float(selected_snow)
+    except ValueError:
+        pass
     filtered_df = agri_data[(agri_data['Country'] == selected_country) & (agri_data['Type'].isin([selected_type]))]
     y_train = np.array(filtered_df['Value'])
     y_train= y_train[0:10]
@@ -741,9 +751,15 @@ def update_regression_chart(selected_country, selected_type,selected_rain,select
         np.mean(filtered_data_weather[filtered_data_weather['Year'] == i]['temp_min']),
         np.mean(filtered_data_weather[filtered_data_weather['Year'] == i]['snow'])])
     X_train = np.array(X_train)
+    X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.2, random_state=0)
 
     model = LinearRegression()
     model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)  # Use test data
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+    print(mse)
+    print(r2)
     new_data = np.array([selected_rain, selected_min,selected_max,selected_snow]).reshape(1,-1)
     # Make predictions on the new data
     new_prediction = model.predict(new_data)
@@ -753,7 +769,7 @@ def update_regression_chart(selected_country, selected_type,selected_rain,select
     fig.add_trace(go.Scatter(x=['2023'], y=new_prediction, mode='markers', name='Prediction'))
     fig.update_layout(
     title=(f"Prediction of {selected_type} production in {selected_country} for 2023"),
-    xaxis_title="Year",
+    xaxis_title="Prediction",
     yaxis_title="Production",
 
 )
