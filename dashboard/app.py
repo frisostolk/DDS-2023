@@ -665,8 +665,9 @@ def update_output(n_clicks, country):
 
 # Agri production Callback
 @app.callback(
-    Output("line-chart", "figure"),
-    [Input("country-dropdown", "value"), Input("type-dropdown", "value")]
+    Output('line-chart', 'figure'),
+    [Input('dashboard-dropdown', 'value'),
+     Input('country-dropdown', 'value')]
 )
 def update_dashboard(selected_dashboard, selected_country):
     if selected_dashboard == 'value':
