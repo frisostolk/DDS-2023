@@ -287,21 +287,26 @@ app.layout = html.Div(
                             ),
                             html.Div(style=block_color,
                                 children=[
-                                    # Production Analytics
-                                    html.Label("Select Types:"),
                                     dcc.Dropdown(
-                                        id="type-dropdown",
-                                        options=[
-                                            {"label": data_type, "value": data_type}
-                                            for data_type in agri_data["Type"].unique()
-                                            if pd.notna(data_type)
-                                        ],
-                                        value=agri_data[
-                                            "Type"
-                                        ].unique(),  # Default selected value (all types)
-                                        multi=True,  # Allow multiple selections
-                                    ),
-                                    dcc.Graph(id="line-chart"),
+                                            id='dashboard-dropdown',
+                                            options=[
+                                                {'label': 'Value by Type Over Years', 'value': 'value'},
+                                                {'label': 'Growth Percentage Over Years', 'value': 'percentage'}
+                                            ],
+                                            value='value',  # Default selected value
+                                            multi=False,
+                                        ),
+                                        dcc.Dropdown(
+                                            id='country-dropdown',
+                                            options=[
+                                                {'label': country, 'value': country} 
+                                                for country in agri_data['Country'].unique() if pd.notna(country)
+                                            ],
+                                            value=agri_data['Country'].iloc[0],  # Default selected value
+                                            multi=False,
+                                        ),
+                                        dcc.Graph(id='line-chart'),
+                                    #    html.Div(id='table-container')
                                 ]
                             ),
                             html.Div(
@@ -663,34 +668,69 @@ def update_output(n_clicks, country):
 
 # Agri production Callback
 @app.callback(
-    Output("line-chart", "figure"),
-    [Input("country-dropdown", "value"), Input("type-dropdown", "value")]
+    Output('line-chart', 'figure'),
+    [Input('dashboard-dropdown', 'value'),
+     Input('country-dropdown', 'value')]
 )
-def update_line_chart(selected_country, selected_types):
-    # Filter data based on selected country and types
-    filtered_df = agri_data[
-        (agri_data["Country"] == selected_country)
-        & (agri_data["Type"].isin(selected_types))
-    ]
+def update_dashboard(selected_dashboard, selected_country):
+    if selected_dashboard == 'value':
+        # Filter data based on selected country
+        filtered_df = agri_data[agri_data['Country'] == selected_country]
 
-    # Create traces for each selected type
-    traces = []
-    for data_type in selected_types:
-        type_data = filtered_df[filtered_df["Type"] == data_type]
-        trace = dict(
-            x=type_data["Year"], y=type_data["Value"], mode="lines", name=data_type
+        # Create traces for each type
+        traces = []
+        for data_type in filtered_df['Type'].unique():
+            type_data = filtered_df[filtered_df['Type'] == data_type]
+            trace = dict(
+                x=type_data['Year'],
+                y=type_data['Value'],
+                mode='lines',
+                name=data_type
+            )
+            traces.append(trace)
+
+        # Create the layout for the line chart
+        layout = dict(
+            title=f'{selected_country} - Value by Type Over Years',
+            xaxis=dict(title='Year'),
+            yaxis=dict(title='Value'),
         )
-        traces.append(trace)
 
-    # Create the layout for the line chart
-    layout = dict(
-        title=f"{selected_country} - Value by Type Over Years",
-        xaxis=dict(title="Year"),
-        yaxis=dict(title="Value"),
-    )
+        # Return a single Figure object
+        line_chart_figure = dict(data=traces, layout=layout)
 
-    # Return the Figure object
-    return dict(data=traces, layout=layout)
+        return line_chart_figure
+
+    elif selected_dashboard == 'percentage':
+        # Filter data based on selected country
+        filtered_df = agri_data[agri_data['Country'] == selected_country]
+
+        # Sort the DataFrame by Country, Type, and Year
+        filtered_df.sort_values(by=['Country', 'Type', 'Year'], inplace=True)
+
+        # Calculate the growth percentage for each group (Country and Type)
+        filtered_df['Growth'] = filtered_df.groupby(['Country', 'Type'])['Value'].pct_change() * 100
+        filtered_df['Growth'] = filtered_df['Growth'].fillna(0)
+
+        # Reset index to have a clean DataFrame
+        filtered_df.reset_index(drop=True, inplace=True)
+
+        # Create line chart figure with separate traces for each 'Type'
+        line_chart_figure = {
+            'data': [
+                {'x': filtered_df[filtered_df['Type'] == type_name]['Year'],
+                 'y': filtered_df[filtered_df['Type'] == type_name]['Growth'],
+                 'type': 'line',
+                 'name': type_name} for type_name in filtered_df['Type'].unique()
+            ],
+            'layout': {
+                'title': f'Growth Percentage Over Years - {selected_country}',
+                'xaxis': {'title': 'Year'},
+                'yaxis': {'title': 'Growth Percentage'},
+            }
+        }
+
+        return line_chart_figure
 
 
 # Map analytics callback
