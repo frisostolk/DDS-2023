@@ -17,20 +17,20 @@ services:
       db_dashboard:
         condition: service_healthy
 
-  jupyter:
-    build:
-      context: .
-      dockerfile: notebook/Dockerfile_notebook
-    ports:
-     - 8888:8888
-    volumes:
-      - ./notebook:/notebook
-      - ./data:/data
-    environment:
-       - JUPYTER_ENABLE_LAB=yes
-       - NB_USER=infomdss
-       - CHOWN_HOME=yes
-    working_dir: /notebook
+  # jupyter:
+  #   build:
+  #     context: .
+  #     dockerfile: notebook/Dockerfile_notebook
+  #   ports:
+  #    - 8888:8888
+  #   volumes:
+  #     - ./notebook:/notebook
+  #     - ./data:/data
+  #   environment:
+  #      - JUPYTER_ENABLE_LAB=yes
+  #      - NB_USER=infomdss
+  #      - CHOWN_HOME=yes
+  #   working_dir: /notebook
 
   db_dashboard:
     image: postgres
