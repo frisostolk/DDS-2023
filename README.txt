@@ -12,6 +12,7 @@ Overview of the project folders
 
 - dashboard: A Flask application that hosts our dashboard and contains some subforders.
     - src: Holds a file for importing the data into the database, and one file for fetching the data the data from the database.
+    - static: Containes files for the visualisations in the dashboard
     - app.py: This is the main Flask app that hosts your dashboard, in here we also build the dashboard with the library dash.
     - Dockerfile_dashboard: Dockerfile for the flask-app.
     - requirements.txt: Holds all python libraries.
