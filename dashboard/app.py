@@ -857,15 +857,17 @@ def update_regression_chart(
 ):
     prod_by_country_no_type = agri_data[agri_data["Country"] == selected_country]
 
-    # Filter production data to only contain dairy production
+    # Filter production data to only contain relevant production type
     prod_by_country = prod_by_country_no_type[
         prod_by_country_no_type["Type"] == selected_type
     ]
 
+    # Filter weather data to only consider weather data from selected country.
     sorted_weather = weather_data[
         weather_data["country"] == selected_country
     ].sort_values("date", ascending=False)
 
+    # Select first and last available year in dataset
     start_year = sorted_weather.iloc[-1]["date"].year
     end_year = sorted_weather.iloc[0]["date"].year
 
@@ -873,6 +875,7 @@ def update_regression_chart(
 
     reg_data = pd.DataFrame()
 
+    # Aggregate weather data by month for each year and create row of dependant variables
     for i in range(start_year, end_year + 1):
         yearly_weather = sorted_weather[sorted_weather["date"].dt.year == i]
         data_for_year = pd.DataFrame()
@@ -896,6 +899,7 @@ def update_regression_chart(
         )
 
     training = reg_data.iloc[:10]
+    # Drop rows with empty values (in this case production)
     training = training.dropna()
     prediction = reg_data.iloc[10:11]
 
